@@ -117,16 +117,27 @@ The installer:
   600). They never leave the machine; re-running the installer keeps them, and keeps the data
 - enables `indent-easy-deploy.timer`, which runs the agent every two minutes
 
-The agent pulls this environment's tag (`dev`, `qa` or `prod`). If it points at a new digest, it:
-1. runs the migrator
-2. starts the API
-3. waits for `/health/ready`
-4. **rolls back to the previous digest** if the new one never becomes ready. The failed digest is
-   remembered, so it isn't retried every two minutes; the next tag move clears it.
+Each VM runs this stack:
+
+```text
+:80 ─► web (NGINX: the app + proxy) ─► api-a ┐
+                                     └► api-b ┴─► postgres, redis
+```
+
+The agent follows this environment's tag (`dev`, `qa` or `prod`) for **both** images, the API and
+the web tier. When either points at a new digest it rolls the release out one piece at a time:
+
+1. runs the migrator, if the API image changed
+2. replaces `api-a` and waits until it is healthy, then does the same for `api-b`. One replica
+   always serves; NGINX retries a request on the other replica if it hits one mid-restart
+3. replaces `web`, if the web image changed
+4. checks `/health/ready` through the web tier
+5. if any step fails, **rolls the previous pair of digests back out** the same way. The failed pair
+   is remembered, so it isn't retried every two minutes; the next tag move clears it.
 
 | File on the VM | Meaning |
 |---|---|
-| `state/current` / `state/previous` | Digest running now / before the last deploy |
+| `state/current-api`, `state/current-web` / `state/previous` | Digests running now / before the last deploy |
 | `state/last-deploy.json` | Last result: `deployed`, `rolled-back`, `failed` or `rollback-failed` |
 | `state/failed` + `state/failed-deploy.log` | Digest that failed, with container status, health checks and logs |
 
@@ -134,14 +145,18 @@ The agent pulls this environment's tag (`dev`, `qa` or `prod`). If it points at 
 ssh -i ~/.ssh/indent_easy_vms ieadmin@192.168.50.11 journalctl -fu indent-easy-deploy   # follow DEV
 ```
 
-Measured on DEV:
-- first deploy: 34 s
-- upgrade: 8 s, with **about 4 s of downtime** while the single API container is replaced
-- failed release rolled back: about 100 s
-- recovery after a VM reboot: about 100 s
+Measured on DEV, with requests through the web tier every 0.1–0.2 s:
 
-Two API replicas behind the NGINX web tier (arriving with the web app) will remove the upgrade
-downtime; until then, release to PROD outside working hours.
+| Release | Result |
+|---|---|
+| New API image | **0 failed requests** (67/67), about 16 s |
+| Broken API image | **0 failed requests** (492/492); `api-a` rolled back, `api-b` never touched |
+| New web image | about **0.6 s** unavailable: one NGINX container owns port 80 |
+| First deploy / after a VM reboot | 34 s / about 100 s |
+| One-time switch from the old single-API layout | about 8 s unavailable |
+
+API releases, the common case, cause no downtime. Web-only releases cause a sub-second gap; release
+those outside the busiest hours.
 
 ## Moving to the office server
 
