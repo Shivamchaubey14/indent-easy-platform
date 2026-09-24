@@ -1,0 +1,21 @@
+node_modules/
+dist/
+build/
+coverage/
+.turbo/
+*.log
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
+
+# Expo
+.expo/
+apps/mobile/android/
+apps/mobile/ios/
+
+# Legacy data must never enter this repo (SRS SEC-010 / OQ-004)
+*.sql.gz
+*.dump
+legacy-data/

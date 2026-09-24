@@ -1,0 +1,28 @@
+{
+  "name": "indent-easy",
+  "private": true,
+  "packageManager": "pnpm@10.34.5",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "infra:up": "docker compose -f infrastructure/docker/compose.yaml up -d",
+    "infra:down": "docker compose -f infrastructure/docker/compose.yaml down",
+    "infra:ps": "docker compose -f infrastructure/docker/compose.yaml ps",
+    "db:psql": "docker compose -f infrastructure/docker/compose.yaml exec postgres psql -U ie -d indent_easy",
+    "db:smoke": "docker compose -f infrastructure/docker/compose.yaml exec -T postgres psql -U ie -d indent_easy -f /checks/constraint-smoke-test.sql",
+    "db:reset": "docker compose -f infrastructure/docker/compose.yaml rm -sf postgres && docker volume rm -f indent-easy_pgdata && docker compose -f infrastructure/docker/compose.yaml up -d postgres"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.0",
+    "turbo": "^2.5.0",
+    "typescript": "^5.9.0"
+  }
+}
