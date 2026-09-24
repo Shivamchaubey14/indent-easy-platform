@@ -17,7 +17,7 @@ All definitions live in [`infrastructure/vm/environments.json`](../../infrastruc
 
 ## Interim host: the development laptop
 
-The laptop has 2 CPU cores and 8 GB RAM. Each VM starts with 1 GB and can grow to 2 GB.
+The laptop has 2 CPU cores and 8 GB RAM. Each VM starts with 768 MB and can grow to 2 GB.
 
 - Run **at most two VMs at once**, and quit Docker Desktop while they run, because its WSL VM also
   holds memory.
@@ -38,15 +38,20 @@ The laptop has 2 CPU cores and 8 GB RAM. Each VM starts with 1 GB and can grow t
    ```
 4. **Network and VMs** (administrator, approve the UAC prompt):
    ```powershell
-   Start-Process powershell -Verb RunAs -ArgumentList '-ExecutionPolicy Bypass -File D:\indent-easy\infrastructure\vm\create-vms.ps1 -Start DEV'
+   Start-Process powershell -Verb RunAs -ArgumentList "-ExecutionPolicy Bypass -File D:\indent-easy\infrastructure\vm\create-vms.ps1 -Start DEV -ForUser $env:USERNAME"
    ```
    This creates:
    - the `IE-Env` internal switch, with 192.168.50.1 as the host's address and NAT to the internet
    - the three VMs, not started except those named in `-Start`
    - hosts-file names for the three environments
 
-   It also adds you to *Hyper-V Administrators*, so after you next sign in you can start and
-   stop the VMs without admin rights. The log is at `D:\VMs\IndentEasy\create-vms.log`.
+   `-ForUser` adds your normal account to *Hyper-V Administrators*, so after you next sign in you
+   can start and stop the VMs without admin rights. Pass it from your normal shell as shown,
+   because UAC may elevate as a different account. The log is at
+   `D:\VMs\IndentEasy\create-vms.log`.
+   If switch creation fails with "Internal miniport create failed … already exists", run the
+   script again. Hyper-V rolls the half-made switch back cleanly, and on the laptop the second
+   attempt succeeded.
 5. **First boot** takes 2–4 minutes while cloud-init installs Docker and updates. Watch with
    `vm.ps1 status` until SSH shows `up`.
 
