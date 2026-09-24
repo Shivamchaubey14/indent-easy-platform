@@ -1,0 +1,6 @@
+# OpenAPI lint rules for docs/api/openapi.yaml (`pnpm contracts:lint`).
+extends:
+  - recommended
+rules:
+  # The local development server (http://localhost:4000) is listed on purpose.
+  no-server-example.com: off
