@@ -20,7 +20,11 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
     pnpm install --offline --frozen-lockfile --filter "@ie/web..." \
  && VITE_RELEASE="${GIT_COMMIT}" pnpm turbo run build --filter "@ie/web..."
 
-FROM nginxinc/nginx-unprivileged:1.29-alpine AS runtime
+# The slim variant has no curl/c-ares (not needed: the health check uses busybox wget), and
+# upgrading at build time picks up Alpine security fixes the base image hasn't shipped yet.
+FROM nginxinc/nginx-unprivileged:1.29-alpine-slim AS runtime
+USER 0
+RUN apk upgrade --no-cache
 ARG GIT_COMMIT=unknown
 ARG BUILD_TIME=unknown
 ARG APP_VERSION=0.0.0

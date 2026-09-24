@@ -57,7 +57,9 @@ still shipped an OpenSSL with one Critical and five High CVEs.
 ## Web image
 
 `infrastructure/docker/web.Dockerfile` builds the SPA and serves it with unprivileged NGINX (UID 101,
-read-only root filesystem, `/tmp` as tmpfs). About 23 MB compressed. `infrastructure/docker/nginx/nginx.conf`:
+read-only root filesystem, `/tmp` as tmpfs). About 10 MB compressed. The base is the `alpine-slim`
+variant with `apk upgrade` at build time: the full Alpine variant shipped curl and c-ares with 38 High
+CVEs, and the web tier needs neither (its health check uses busybox `wget`). `infrastructure/docker/nginx/nginx.conf`:
 
 - proxies `/graphql`, `/api/`, `/health/` and `/.well-known/` to the `api-a` and `api-b` replicas.
   Their names are re-resolved every 5 s, because replicas get a new address when recreated.
