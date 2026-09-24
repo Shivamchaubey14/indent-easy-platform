@@ -4,7 +4,7 @@ Single source of truth for where the build stands. Update the checklist and the 
 end of every session. Roadmap phases come from SRS §62; timelines are not estimated there.
 
 **Current phase:** 0 — Foundation
-**Next task:** 0.6 — `apps/api` skeleton (after PRs #1 and #2 are merged into `dev`)
+**Next task:** 0.7 (Drizzle), then 0.13/0.14/0.16 (CI, Dockerfiles, deployment pipeline to the VMs). PRs #1 → #2 → #3 → #4 are stacked; merge them in order.
 
 **Repo:** https://github.com/Shivamchaubey14/indent-easy-platform (public). `main` and `dev` are protected. Branches are `feature/*` → PR → `dev`, and `dev` → PR → `main` at phase milestones. The owner merges PRs; they are not merged from the build session.
 
@@ -31,7 +31,7 @@ end of every session. Roadmap phases come from SRS §62; timelines are not estim
 - [x] 0.3 Local infra via Docker Compose — Postgres 16, Redis 7, MinIO (+ buckets), Mailpit, Gotenberg (opt-in)
 - [x] 0.4 Monorepo root — `package.json`, `pnpm-workspace.yaml`, `turbo.json`, prettier, `.env.example`, README
 - [x] 0.5 Shared packages: `tsconfig`, `config` (Zod env loader), `graphql` (move schema + codegen), `validation`, `domain-types`, `events` (TS types from JSON Schema). PR #1
-- [ ] 0.6 `apps/api` skeleton — Express 5 + GraphQL Yoga, `/health/{live,ready,startup}`, Pino, graceful shutdown, DB + Redis clients
+- [x] 0.6 `apps/api` skeleton: Express 5 + GraphQL Yoga, `/health/{live,ready,startup}`, Pino, graceful shutdown, DB + Redis clients (PR #3)
 - [ ] 0.7 Drizzle wired to the existing schema (introspect `0001_initial.sql`), migrations take over from the entrypoint mount
 - [ ] 0.8 `apps/worker` + `apps/scheduler` skeletons — BullMQ, outbox relay stub, leader lock
 - [ ] 0.9 `apps/web` skeleton — Vite + React + TanStack Router/Query + Zustand (session/ui stores) + Tailwind + GSAP (`useGSAP`); login page shell; EN/HI i18n
@@ -40,6 +40,8 @@ end of every session. Roadmap phases come from SRS §62; timelines are not estim
 - [ ] 0.12 ESLint + boundaries rules, Vitest, Testcontainers smoke test
 - [ ] 0.13 Actions CI (lint, typecheck, test, db smoke); then make CI a required check on `main`/`dev`. The repo and branch protection are already done.
 - [ ] 0.14 Dockerfiles (api, web) per §44.2
+- [x] 0.15 DEV/QA/PROD Hyper-V VMs (DEC-003): scripts in `infrastructure/vm/`, runbook `docs/runbooks/environments.md`. All three VMs created. DEV booted and verified (cloud-init clean, fixed IP, NAT internet, Docker 29 + Compose, ufw, IST, swap). QA and PROD have identical images but haven't been booted yet (PR #4)
+- [ ] 0.16 Deployment pipeline: VM compose stack (NGINX web + api + worker + scheduler + PG + Redis + MinIO), deploy agent (systemd timer following the env tag), GHCR images built once on `dev`, promote workflows (rc tag → QA, release tag + `production` approval → PROD), PROD backups off-host
 
 **Exit criteria (§62):** a hello-world request goes through the whole pipeline; OQ-003, OQ-004, and OQ-022 are closed.
 
@@ -49,7 +51,7 @@ end of every session. Roadmap phases come from SRS §62; timelines are not estim
 |---|---|---|
 | OQ-004 | Rotate/revoke secrets found in the legacy archive (Django key, Gmail app password, WhatsApp token) | Urgent — independent of the build |
 | OQ-003 | Production data volumes / peak load | Phase 0 exit, sizing |
-| OQ-022 | Hosting target (on-prem k8s vs managed cloud); includes the production object store | Phase 0 exit, deploy |
+| OQ-022 | Mostly decided (DEC-003): Hyper-V VMs DEV/QA/PROD, Docker Compose. Still open: office server specs (the laptop is the interim host) | Go-live |
 | OQ-025 | Legacy password hashes: PBKDF2 adapter vs forced reset | Phase 1 login |
 | OQ-020 | Reconciliation ledger formula | Phase 6 |
 | OQ-031 | Chart library (ECharts vs Recharts) | Phase 9 dashboards |
@@ -69,3 +71,15 @@ end of every session. Roadmap phases come from SRS §62; timelines are not estim
 - Zod 4 gotcha: checks keep running after a failed `.regex`, so pass `abort: true` when later refinements assume a well-formed value.
 - SRS changed to v1.3 (DEC-002, ADR-016): Zustand is the client state manager on web and mobile, and server data stays in TanStack Query. GSAP handles web animation, and Reanimated handles mobile because GSAP needs the DOM.
 - PR #1 (shared packages) → `dev`. PR #2 (SRS change) is stacked on #1 because both touch the README table. Merging #1 retargets #2 to `dev` automatically.
+
+### 2026-09-24: API skeleton, environments
+- Started 0.6 on top of PR #2 without waiting for merges. PR #3 contains the API.
+- graphql-armor hard-depends on graphql 16, so graphql is pinned to 16 for the whole workspace. graphql 16 also has a dual ESM/CJS package, which makes `instanceof GraphQLError` fail under Vitest; the error mask checks the error's shape instead.
+- A Python `http.server` on this laptop holds 127.0.0.1:8080, so the local API runs on port 4000. Containers keep 8080.
+- Found generated files tracked since PR #1 (the ignore pattern was root-anchored). Fixed on the PR #1 branch and restacked the later branches.
+- Decision DEC-003: three environments, DEV, QA and PROD, as Hyper-V VMs on this laptop for now, moving to an office server later (specs pending). SRS v1.4 adds ADR-017 and R-18. Deployment is pull-based, because self-hosted runners on a public repo are unsafe.
+- Hardware limit: 2 cores and 7.7 GB RAM. An earlier attempt at a 2 GB VM failed for lack of memory. VMs use dynamic memory (768 MB start, 2 GB max). Run at most two at a time, with Docker Desktop stopped.
+- VMs built from the Ubuntu 26.04 cloud image (checksum verified). Disks are converted with qemu-img, and the cloud-init seed ISO is built with xorriso, both in Docker; no Windows tools needed.
+- The first `New-VMSwitch` failed ("Internal miniport create failed … already exists"). Hyper-V rolled it back and a retry succeeded.
+- UAC on this laptop elevates as a separate `Administrator` account, so `$env:USERNAME` inside the elevated script is wrong. `create-vms.ps1` now takes `-ForUser` from the normal shell. `Shivam` is in Hyper-V Administrators, effective after the next sign-in. Until then, starting and stopping VMs needs elevation.
+- Memory: with Docker Desktop running, only 0.45 GB was free. After `docker desktop stop`, free memory reached 1.5 GB once WSL released its RAM (it takes a minute). DEV booted at 768 MB startup. Docker Desktop is still stopped; run `pnpm infra:up` after starting it again.

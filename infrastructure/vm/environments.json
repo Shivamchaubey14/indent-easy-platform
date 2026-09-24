@@ -1,0 +1,47 @@
+{
+  "vmRoot": "D:\\VMs\\IndentEasy",
+  "baseImage": "base\\ubuntu-26.04-server-cloudimg-amd64.img",
+  "adminUser": "ieadmin",
+  "sshPublicKey": "~\\.ssh\\indent_easy_vms.pub",
+  "network": {
+    "switchName": "IE-Env",
+    "natName": "IE-Env-NAT",
+    "prefix": "192.168.50.0/24",
+    "gateway": "192.168.50.1",
+    "prefixLength": 24,
+    "dns": ["1.1.1.1", "8.8.8.8"],
+    "domain": "indent-easy.local"
+  },
+  "environments": [
+    {
+      "name": "DEV",
+      "hostname": "ie-dev",
+      "ip": "192.168.50.11",
+      "cpus": 2,
+      "memoryStartupMB": 768,
+      "memoryMinimumMB": 512,
+      "memoryMaximumMB": 2048,
+      "diskGB": 30
+    },
+    {
+      "name": "QA",
+      "hostname": "ie-qa",
+      "ip": "192.168.50.12",
+      "cpus": 2,
+      "memoryStartupMB": 768,
+      "memoryMinimumMB": 512,
+      "memoryMaximumMB": 2048,
+      "diskGB": 30
+    },
+    {
+      "name": "PROD",
+      "hostname": "ie-prod",
+      "ip": "192.168.50.13",
+      "cpus": 2,
+      "memoryStartupMB": 768,
+      "memoryMinimumMB": 512,
+      "memoryMaximumMB": 2048,
+      "diskGB": 40
+    }
+  ]
+}

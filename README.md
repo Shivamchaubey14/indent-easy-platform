@@ -51,6 +51,16 @@ infrastructure/  Docker Compose and deployment configuration
 docs/            SRS, API contracts, ADRs, runbooks
 ```
 
+## Environments
+
+| Environment | Purpose                         | Updated                                                  |
+| ----------- | ------------------------------- | -------------------------------------------------------- |
+| DEV         | Integration of the `dev` branch | Automatically on every merge to `dev`                    |
+| QA          | Testing and user acceptance     | When a release candidate `vX.Y.Z-rc.N` is tagged         |
+| PROD        | Live use                        | When a release `vX.Y.Z` is tagged on `main` and approved |
+
+Each environment is an Ubuntu VM under Hyper-V running the stack with Docker Compose. The same image moves from DEV to QA to PROD without being rebuilt.
+
 ## Branching
 
 - `main` is the released line. It only changes through pull requests from `dev`.
@@ -62,4 +72,5 @@ docs/            SRS, API contracts, ADRs, runbooks
 - Requirements: [`docs/srs/Indent-Easy-SRS.md`](docs/srs/Indent-Easy-SRS.md)
 - GraphQL contract: [`packages/graphql/schema/schema.graphql`](packages/graphql/schema/schema.graphql)
 - REST contract: [`docs/api/openapi.yaml`](docs/api/openapi.yaml)
+- Environments (DEV, QA, PROD): [`docs/runbooks/environments.md`](docs/runbooks/environments.md)
 - Build progress: [`docs/PROGRESS.md`](docs/PROGRESS.md)
