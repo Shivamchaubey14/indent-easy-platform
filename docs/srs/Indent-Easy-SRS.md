@@ -98,6 +98,7 @@
 | 1.1 | 2026-09-24 | Architecture Team | **WhatsApp removed from scope entirely (DEC-001)**; Sahayak notifications via SMS only; live v4 code-base delta added (§5.10); related requirements, APIs, events, schema, configuration, risks and open questions updated |
 | 1.2 | 2026-09-24 | Architecture Team | Live v4 `views.py`/`urls.py`/`stock_report.html` reviewed: **Sale & Stock Report specified as implemented (§5.10.2, §11.21 SSR-001…024)**; live STN draft/post/receive, stock condition buckets & physical count, sale to other, SAP order generator, POD export/compliance, indent Excel import, HOD bulk actions, Cluster MIS role; defects L-34…L-37 |
 | 1.3 | 2026-09-24 | Architecture Team | **Client state and animation stack changed (DEC-002, ADR-016):** Zustand is the client-state manager on web **and** mobile (§17.1, §17.3, §18.1); GSAP replaces Motion for web animation (§17.1, §40.5); React Native Reanimated for mobile animation because GSAP requires the DOM (§18.1) |
+| 1.4 | 2026-09-24 | Architecture Team | **Environments and hosting decided (DEC-003, ADR-017):** three environments DEV → QA → PROD, each a Linux (Ubuntu 26.04 LTS) Hyper-V VM on a Windows host, running the stack with Docker Compose. Build once, promote the same image. Kubernetes and the separate staging environment deferred for Release 1 (§43, §45, §54, OQ-022, R-18) |
 
 ### 1.2 Approval / Sign-off
 
@@ -131,6 +132,7 @@ Requirement IDs use the prefixes in §11. Priorities use **Must / Should / Could
 |---|---|---|---|
 | DEC-001 | 2026-09-24 | **WhatsApp is not required and is removed completely** from Indent Easy (no WhatsApp sending, templates, webhooks, analytics, registration checks, configuration or data migration). | The notification channels are in-app, push, e-mail and SMS. Sahayak (MPP) notifications use SMS (plus the printed/downloadable receipt). All legacy WhatsApp code, logs, scripts, scheduled tasks and credentials are retired and not migrated (§5.3.6, §52.3, Appendix B). The legacy WhatsApp access token must still be revoked (OQ-004). |
 | DEC-002 | 2026-09-24 | **Zustand for client state management and GSAP for animations.** | Zustand owns all client-side state on web and mobile (session, UI, workspace, drafts, sync status); server data stays in the TanStack Query cache and is never copied into stores. GSAP (`gsap` + `@gsap/react`) replaces Motion on the web. GSAP does not run in React Native, so the mobile app uses React Native Reanimated with the same motion tokens (§40.5). Recorded as ADR-016. |
+| DEC-003 | 2026-09-24 | **Three environments, DEV, QA and PROD, each on its own virtual machine on a Windows host.** Development work lands on DEV. QA is where testing and user acceptance happen. Only a release that passed QA ships to PROD. | Each environment is an Ubuntu 26.04 LTS Hyper-V VM running the application stack with Docker Compose. Images are built once by CI and promoted unchanged from DEV to QA to PROD. PROD requires an explicit approval. Interim host: the development laptop (VMs named `DEV`, `QA`, `PROD`). Target host: an office Windows server whose specifications are still pending (OQ-022). Kubernetes is deferred to a later release (ADR-006, ADR-017) and QA also serves as the staging/UAT environment. |
 
 ### 1.5 Glossary
 
@@ -3892,20 +3894,40 @@ Target: **WCAG 2.2 Level AA** for web and mobile (and EN 301 549 / GIGW 3.0 alig
 - Immutable, signed container images promoted across environments (build once, deploy many).
 - Environment parity: dev (docker compose) mirrors the Kubernetes topology (same images, same env contract).
 - Twelve-factor configuration (env vars + mounted secrets); no config baked in images.
-- Hosting target is **TBD (OQ-022)**: on-premises Kubernetes (e.g., RKE2/k3s with MinIO, CloudNativePG) or managed cloud (e.g., AWS EKS/RDS/S3 or Azure AKS/PostgreSQL Flexible/Blob with S3 gateway). The design is portable across both.
+- Hosting (DEC-003, ADR-017): Release 1 runs on three Ubuntu VMs, DEV, QA and PROD, under Hyper-V on a Windows host, each running the stack with Docker Compose. The interim host is the development laptop. The target host is an office Windows server, and moving there changes only host addresses. Containers, images and configuration stay the same, so a later move to Kubernetes (ADR-006) or managed cloud is not blocked.
 
-### 43.2 Environments
+### 43.2 Environments (DEC-003)
 
-| Environment | Purpose | Data | Deploy trigger | Approvals |
-|---|---|---|---|---|
-| `local` | Developer machine (docker compose) | Seed/synthetic | manual | — |
-| `dev` | Integration of main branch | Synthetic | every merge to `main` | — |
-| `qa` | Test execution, E2E, exploratory | Synthetic + anonymised migration samples | nightly + on demand | QA lead for promotion |
-| `staging` | Production-like; UAT, performance, migration rehearsals | Anonymised production copy (masking pipeline) | release candidate tag | Product owner |
-| `production` | Live | Real | approved release tag | Change advisory (business + IT) |
-| `preview` (Could) | Per-PR ephemeral web + API | Synthetic | PR label | — |
+| Environment | Where | Purpose | Data | Deploy trigger | Gate |
+|---|---|---|---|---|---|
+| `local` | Developer machine (Docker Desktop compose) | Day-to-day development | Seed/synthetic | manual (`pnpm infra:up`, `pnpm dev`) | — |
+| **DEV** | VM `DEV` (`dev.indent-easy.local`, 192.168.50.11) | Integration of the `dev` branch; smoke checks | Synthetic seed | automatic on every merge to `dev` | CI green |
+| **QA** | VM `QA` (`qa.indent-easy.local`, 192.168.50.12) | Functional, E2E, regression and user acceptance testing; release rehearsal (also plays the staging role in R1) | Synthetic + anonymised migration samples | release-candidate tag `vX.Y.Z-rc.N` promotes the DEV-tested image | QA lead promotes; QA sign-off recorded on the release issue |
+| **PROD** | VM `PROD` (`prod.indent-easy.local`, 192.168.50.13) | Live use by Shwetdhara | Real | release tag `vX.Y.Z` on `main` promotes the QA-passed image | Required approval on the `production` GitHub environment + QA sign-off |
 
----
+Addresses are on the host-only `IE-Env` network, NAT-ed to the internet by the Windows host. Moving to the office server keeps names and addresses. Definitions live in `infrastructure/vm/environments.json`.
+
+**Reading rule for Release 1:** wherever this SRS refers to a *staging* environment (CI pipeline §46, E2E and load tests §48, SLO validation §49, migration rehearsals §52), that role is filled by **QA**.
+
+### 43.3 Promotion Flow
+
+```mermaid
+flowchart LR
+  F["feature/* branch"] -->|PR + CI| D["dev branch"]
+  D -->|CI builds images once<br/>tag sha-xxxxxxx| R[("GHCR registry")]
+  R -->|"env tag: dev"| DEV["DEV VM"]
+  DEV -->|"tag vX.Y.Z-rc.N<br/>(same digest)"| QA["QA VM<br/>testing + UAT"]
+  QA -->|"sign-off → PR dev→main<br/>tag vX.Y.Z + approval"| PROD["PROD VM"]
+  PROD -.->|"rollback: re-point prod tag<br/>to previous release"| PROD
+```
+
+Rules:
+
+1. **Build once, promote the same bytes.** Images are built only from `dev` and identified by digest. QA and PROD receive exactly the digest that was tested before them, and nothing is rebuilt for production.
+2. **Pull-based deployment.** Each VM runs a small deploy agent (systemd timer) that follows its environment tag in the registry (`dev`, `qa`, `prod`). It pulls the new digest, runs database migrations, restarts the stack, checks `/health/ready`, and reverts to the previous digest if the check fails. CI never needs network access to the VMs, and no CI runner executes repository code on them. That matters because the repository is public.
+3. **Promotion is a tag move.** Promoting means re-pointing the environment tag to an already-tested digest. PROD promotion runs in the `production` GitHub environment, which requires approval.
+4. **Configuration per environment** lives on each VM in `/opt/indent-easy/.env`, generated from `.env.example` with that environment's secrets. It is never in Git. PROD secrets differ from DEV/QA secrets.
+5. **Data flows downwards only.** PROD data never goes to DEV or QA except through the anonymisation pipeline (§52).
 
 ## 44. Docker
 
@@ -3971,6 +3993,8 @@ Rules: multi-stage; pinned base image digests (Renovate updates); no package man
 ---
 
 ## 45. Kubernetes
+
+> **Deferred for Release 1 (DEC-003, ADR-017).** Release 1 runs on Docker Compose inside the DEV/QA/PROD VMs (§43.2, §54.1). This section stays as the target design for when the load or the availability requirements justify a cluster.
 
 ### 45.1 Resources per Workload
 
@@ -4428,7 +4452,18 @@ flowchart LR
 
 ## 54. Deployment Architecture
 
-### 54.1 Topology (production, single region with DR site)
+### 54.1 Release 1 Topology (DEC-003)
+
+| Layer | Specification |
+|---|---|
+| Host | Windows machine running Hyper-V. Interim: development laptop (2 cores, 8 GB RAM), which can run about two environment VMs at a time. Target: office Windows server, specs pending (OQ-022) |
+| VMs | `DEV`, `QA`, `PROD`: Ubuntu 26.04 LTS cloud image, Gen 2, Secure Boot, 2 vCPU, dynamic memory 0.5–2 GB, 30–40 GB dynamic VHDX, provisioned by cloud-init (`infrastructure/vm/`) |
+| Network | Internal switch `IE-Env` 192.168.50.0/24 with host NAT; static IPs .11/.12/.13; names `dev/qa/prod.indent-easy.local` in the host's hosts file; ufw allows only 22, 80 and 443 |
+| Per-VM stack | Docker Compose: `web` (NGINX serving the SPA and proxying `/graphql` and `/api`), `api`, `worker`, `scheduler`, PostgreSQL 16, Redis 7, MinIO, plus Mailpit on DEV/QA only |
+| Deploy agent | systemd timer following the environment's registry tag (§43.3) |
+| Backups | PROD: nightly `pg_dump` and MinIO mirror copied off the VM to a Windows share and then off the host (§51). A laptop is not a durable place for production data (R-18) |
+
+### 54.1a Target Topology (Kubernetes, future release)
 
 | Layer | Production | DR |
 |---|---|---|
@@ -4443,13 +4478,13 @@ flowchart LR
 
 | Aspect | Specification |
 |---|---|
-| Branching | Trunk-based: short-lived feature branches → PR → `main`; release branches `release/x.y` cut for stabilisation; hotfix branches from release tag |
+| Branching | `feature/*` and `fix/*` from `dev` → PR → `dev`; at release, PR `dev` → `main`; tags `vX.Y.Z-rc.N` (QA) and `vX.Y.Z` (PROD); hotfix: `hotfix/*` from the release tag → PR to `main`, then merged back into `dev`. `main` and `dev` are protected |
 | Code review | ≥ 1 approval (≥ 2 for `modules/inventory`, `modules/identity`, migrations, security-sensitive files via CODEOWNERS); CI green required |
 | Versioning | SemVer per app; API schema hash in `/api/v1/version`; mobile `minSupportedVersion` gate |
-| Environments flow | dev (auto) → qa (nightly) → staging (RC tag) → production (approved tag) |
+| Environments flow | DEV (automatic on merge to `dev`) → QA (release-candidate tag, same image) → PROD (release tag on `main`, approval required, same image). See §43.3 |
 | Deployment | Rolling update (maxSurge 25%, maxUnavailable 0) default; canary via Argo Rollouts for api (Should); blue/green for web static assets (new bucket prefix + atomic switch) |
 | DB migrations | Expand/contract: additive migrations deploy before code; destructive steps only after all pods on new version and one release later; migrations must be backward compatible with N−1 app version |
-| Rollback | Application: Argo Rollouts abort / redeploy previous image digest (≤ 10 min); DB: forward-fix preferred, PITR only for catastrophic cases; feature flags to disable features instantly |
+| Rollback | Application: re-point the environment tag to the previous release digest, or the deploy agent auto-reverts when readiness fails (≤ 10 min). DB: forward-fix preferred; restore from backup only for catastrophic cases. Feature flags disable features instantly |
 | Mobile | Store staged rollout (10% → 50% → 100% over 72 h); EAS Update channels for JS fixes with rollback; forced update screen below `minSupportedVersion` |
 | Change management | Release notes, CAB approval for production, maintenance windows for migrations > 5 min (OQ-027) |
 
@@ -4532,6 +4567,7 @@ Probability and impact are rated only where evidence exists; otherwise **TBD** (
 | R-15 | Over-engineering (K8s, observability) for a small user base increases cost | Medium | Medium | Start with managed/minimal footprints; ADR re-evaluation triggers; right-size cluster | Architect |
 | R-16 | Vendor e-mail deliverability after moving off Gmail SMTP | TBD | Medium | SPF/DKIM/DMARC; warm-up; bounce monitoring | IT & MIS |
 | R-17 | Regulatory changes (GST e-invoice, e-way bill APIs) require integration | TBD | Medium | Adapter ports reserved; roadmap slot | Finance Head |
+| R-18 | Interim host is a laptop with 8 GB RAM: PROD shares it with DEV/QA, there is no redundancy, and the laptop may be off or offline | High (until the server is provided) | High for live use | Run at most two VMs at a time; PROD backups copied off the host nightly; go-live only after PROD moves to the office server (OQ-022) | IT & MIS |
 
 ---
 
@@ -4597,7 +4633,7 @@ Probability and impact are rated only where evidence exists; otherwise **TBD** (
 | OQ-019 | Are Sahayak SMS notifications required at all after WhatsApp removal, and for which events (advance sale, general sale, reconciliation)? | DEC-001 | SMS for advance & general sales | Phase 7 |
 | OQ-020 | **Reconciliation formula and status semantics**: is `closing = opening + advance − SAP` (positive = to deduct) correct? Which status names map to which sign? | Legacy has contradictory formulas (L-18) | As proposed in REC-005 | **Phase 6 (blocking)** |
 | OQ-021 | Use Devanagari digits in Hindi UI? | — | Latin digits | Phase 9 |
-| OQ-022 | Hosting target (on-prem K8s vs managed cloud; data residency) | Legacy on Windows host | Managed Kubernetes in India region or on-prem RKE2 | Phase 0 |
+| OQ-022 | Hosting target (on-prem K8s vs managed cloud; data residency) | Legacy on Windows host | **Decided (DEC-003):** Hyper-V VMs (DEV, QA, PROD) on a Windows host; Docker Compose per VM. *Still open:* office server specifications and go-live host | Phase 0 |
 | OQ-023 | Sentry SaaS vs self-hosted (data residency) | — | Self-hosted or EU/IN region SaaS with scrubbing | Phase 0 |
 | OQ-024 | DR tier: warm standby site vs restore-from-backup; RPO/RTO acceptance | — | RPO 15 min / RTO 8 h | Phase 10 |
 | OQ-025 | Migrate legacy password hashes (PBKDF2 verify-and-rehash) or force reset? | Django hashes | Verify-and-rehash with flag `legacy_hash_login` | Phase 1 |
@@ -4812,12 +4848,23 @@ Each ADR: **Context · Decision · Alternatives · Reasons · Trade-offs · Cons
 
 #### ADR-006 Kubernetes for runtime orchestration
 
+*Status: deferred for Release 1. Superseded for R1 by ADR-017 (DEC-003).*
+
 - **Context:** Multiple process types, independent scaling, HA, zero-downtime deploys, standard observability; legacy ran on one Windows host.
 - **Decision:** Kubernetes (managed or on-prem RKE2/k3s) with Helm + Argo CD.
 - **Alternatives:** Docker Compose on VMs; PaaS (Render/App Service); Nomad.
 - **Reasons:** Declarative ops, self-healing, HPA/KEDA, PDBs, NetworkPolicies, ecosystem (cert-manager, ESO, CloudNativePG).
 - **Trade-offs:** Operational complexity for a small team (R-10, R-15).
 - **Consequences:** Keep cluster minimal; prefer managed K8s/DB if allowed; fallback ADR: Compose on 2 VMs + managed DB if skills unavailable.
+
+#### ADR-017 Docker Compose on Hyper-V VMs for Release 1 (DEC-003)
+
+- **Context:** The business wants three separated environments, DEV, QA and PROD, running as VMs on a Windows machine, with a real-world path from development through testing to production. The team is small, volumes are low (§5.9), and the interim host is a laptop with 2 cores and 8 GB RAM.
+- **Decision:** Each environment is an Ubuntu 26.04 LTS Hyper-V VM running the whole stack with Docker Compose. CI builds images once and promotes the same digest DEV → QA → PROD by moving environment tags in the registry. A pull-based agent on each VM deploys, migrates, health-checks and auto-reverts. PROD promotion needs approval in the GitHub `production` environment.
+- **Alternatives:** Kubernetes (ADR-006, too heavy for this host and team); push deployment from GitHub-hosted runners over SSH (VMs are behind NAT with no inbound access); self-hosted GitHub Actions runners on the VMs (on a public repository, workflow code from pull requests could run on production machines); one VM with three stacks (weaker isolation than the business asked for).
+- **Reasons:** Real environment isolation, with separate OS, database and secrets per environment. Nothing extra to run beyond Docker. The same images and env-var contract as a future Kubernetes deployment. Pull-based deployment needs no inbound ports and gives CI no credentials to the servers.
+- **Trade-offs:** No automatic failover or horizontal scaling. The per-VM PostgreSQL has no standby, so backups and restore tests carry the durability (§51). On the interim laptop not all three VMs fit in memory at once.
+- **Consequences:** Kubernetes (§45) is deferred, and ADR-006 becomes the path for a later release. `infrastructure/vm/` holds reproducible VM provisioning, and the deploy agent and compose files live in the repository. Before go-live, PROD moves to the office server (R-18).
 
 #### ADR-007 S3-compatible object storage for documents
 
