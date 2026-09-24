@@ -4,7 +4,7 @@ Single source of truth for where the build stands. Update the checklist and the 
 end of every session. Roadmap phases come from SRS §62; timelines are not estimated there.
 
 **Current phase:** 0 — Foundation
-**Next task:** 0.14 Dockerfiles, then 0.16 deployment to the VMs. PRs #1 → #7 are stacked; merge them in order. After #7 reaches `dev`, make the CI checks required (see 0.13).
+**Next task:** 0.16 deployment to the VMs (GHCR images, VM compose stack, deploy agent, promotion). The alternative order is 0.8 worker/scheduler or 0.9 web first. PRs #1 → #8 are stacked; merge them in order. After #7 reaches `dev`, make the CI checks required (see 0.13).
 
 **Repo:** https://github.com/Shivamchaubey14/indent-easy-platform (public). `main` and `dev` are protected. Branches are `feature/*` → PR → `dev`, and `dev` → PR → `main` at phase milestones. The owner merges PRs; they are not merged from the build session.
 
@@ -40,7 +40,7 @@ end of every session. Roadmap phases come from SRS §62; timelines are not estim
 - [ ] 0.12 ESLint + boundaries rules, Vitest, Testcontainers smoke test
 - [x] 0.13 GitHub Actions CI (PR #7). Two jobs: `Format, types, unit tests, build` (plus OpenAPI lint and a docs artifact) and `Migrations, invariants, RLS` (real Postgres, drift gate, 8 invariant asserts, integration tests). Green on GitHub. **To do once #7 is in `dev`:** make both checks required on `dev` and `main`. Doing it earlier would block #1–#6, which never run CI.
 - [x] 0.13a API documentation site `apps/docs` (PR #6): guide, REST (Scalar), GraphQL (SpectaQL), events, status generated from the API build. Published by CI to Cloudflare Pages behind Cloudflare Access, and the deploy refuses to publish without the gate. **Waiting on the user:** Cloudflare account, Access app and GitHub secrets (`docs/runbooks/api-docs.md`)
-- [ ] 0.14 Dockerfiles (api, web) per §44.2
+- [x] 0.14 API image (`infrastructure/docker/api.Dockerfile`, PR #8): distroless Debian 13, UID 10001, read-only root filesystem, 59 MB, also the migrator (`dist/migrate.js`). CI lints, builds, scans (Trivy: 0 High/Critical) and boot-tests it. The web image waits for 0.9. Runbook: `docs/runbooks/containers.md`
 - [x] 0.15 DEV/QA/PROD Hyper-V VMs (DEC-003): scripts in `infrastructure/vm/`, runbook `docs/runbooks/environments.md`. All three VMs created. DEV booted and verified (cloud-init clean, fixed IP, NAT internet, Docker 29 + Compose, ufw, IST, swap). QA and PROD have identical images but haven't been booted yet (PR #4)
 - [ ] 0.16 Deployment pipeline: VM compose stack (NGINX web + api + worker + scheduler + PG + Redis + MinIO), deploy agent (systemd timer following the env tag), GHCR images built once on `dev`, promote workflows (rc tag → QA, release tag + `production` approval → PROD), PROD backups off-host
 
@@ -99,3 +99,9 @@ end of every session. Roadmap phases come from SRS §62; timelines are not estim
 - Found with headless Edge screenshots: Scalar's layout broke under the site stylesheet, and it showed "Ask AI" and "Generate MCP" on localhost. Fixed with scoped header CSS and `agent`/`mcp` disabled.
 - First CI run failed: (1) Turbo strict env mode hid DATABASE_URL from the integration tests (now `passThroughEnv`); (2) `.npmrc` had `store-dir=D:/...`, which on Linux became a directory inside the checkout. The store location now lives only in the user-level pnpm config. Second run green.
 - Lesson: never pipe a check into `tail` inside an `&&` chain, because the exit code is lost. That's how an unformatted turbo.json was pushed; it was amended before CI picked it up.
+
+### 2026-09-24: API image
+- Built, then ran against the local services: the migrator applies migrations; the API on a read-only root filesystem is ready, answers GraphQL and serves metrics; Docker health is `healthy`; SIGTERM gives a clean exit 0.
+- Found and fixed: the whole `apps/api` folder, including src and tests, was copied into the image (pnpm deploy follows `files`, which was unset).
+- Trivy: the Debian 12 distroless base still shipped an OpenSSL with 1 Critical and 5 High CVEs, while the Debian 13 base had none. Moved both build and runtime stages to Debian 13.
+- CI runs hadolint and Trivy as digest-pinned Docker images instead of third-party actions, to limit supply-chain risk.
