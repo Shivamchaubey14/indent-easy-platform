@@ -36,7 +36,7 @@ docker run --rm --network indent-easy_default --read-only -p 4020:8080 --env-fil
   uses the same Debian release (`node:24-trixie-slim`), so native modules match.
 - **Contents:** compiled `dist/`, production dependencies, and `database/migrations` (at
   `MIGRATIONS_DIR=/app/migrations`, used by the migrator and the readiness check). No source files,
-  tests or dev tools. About 59 MB.
+  tests or dev tools. About 60 MB compressed (what a server pulls), 285 MB unpacked.
 - **Build info:** `GIT_COMMIT`, `BUILD_TIME` and `APP_VERSION` build args end up in the OCI labels and
   in `GET /api/v1/version`.
 - **Health:** a Docker `HEALTHCHECK` calls `/health/live` with Node's `fetch`, since the image has no curl.
