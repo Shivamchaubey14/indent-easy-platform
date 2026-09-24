@@ -1,0 +1,33 @@
+{
+  "name": "@ie/events",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Domain event contracts: JSON Schema, generated TypeScript types and a runtime validator.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
+    },
+    "./schema.json": "./schema/event-contracts.schema.json"
+  },
+  "files": [
+    "dist",
+    "schema"
+  ],
+  "scripts": {
+    "codegen": "node scripts/generate.mjs",
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1"
+  },
+  "devDependencies": {
+    "@ie/tsconfig": "workspace:*",
+    "json-schema-to-typescript": "^16.0.0"
+  }
+}

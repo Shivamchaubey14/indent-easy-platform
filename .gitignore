@@ -19,3 +19,6 @@ apps/mobile/ios/
 *.sql.gz
 *.dump
 legacy-data/
+
+# Generated code (rebuilt by `turbo run codegen`)
+**/src/generated/

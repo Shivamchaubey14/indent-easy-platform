@@ -2,3 +2,5 @@ docs/
 database/
 packages/events/schema/
 pnpm-lock.yaml
+**/dist/
+**/src/generated/
