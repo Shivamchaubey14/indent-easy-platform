@@ -1,0 +1,38 @@
+{
+  "name": "@ie/graphql",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The GraphQL contract (SDL) and TypeScript types generated from it.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./schema": {
+      "types": "./dist/schema.d.ts",
+      "default": "./dist/schema.js"
+    },
+    "./schema.graphql": "./schema/schema.graphql"
+  },
+  "files": [
+    "dist",
+    "schema"
+  ],
+  "scripts": {
+    "codegen": "graphql-codegen --config codegen.yml",
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "graphql": "^17.0.2"
+  },
+  "devDependencies": {
+    "@graphql-codegen/add": "^7.1.0",
+    "@graphql-codegen/cli": "^7.4.2",
+    "@graphql-codegen/typescript": "^6.1.0",
+    "@ie/tsconfig": "workspace:*"
+  }
+}

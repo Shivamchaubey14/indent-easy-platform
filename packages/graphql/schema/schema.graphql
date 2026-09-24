@@ -2345,7 +2345,10 @@ type ReconciliationSheet implements Node {
   uploadedBy: UserRef!
   processedAt: DateTime
   publishedAt: DateTime
-  records(filter: ReconciliationRecordFilter, pagination: PaginationInput): ReconciliationRecordConnection!
+  records(
+    filter: ReconciliationRecordFilter
+    pagination: PaginationInput
+  ): ReconciliationRecordConnection!
 }
 
 type ReconciliationRecord implements Node {
@@ -3328,7 +3331,6 @@ type DeliveryStatusEvent {
   occurredAt: DateTime!
 }
 
-
 # ---------------------------------------------------------------------------
 # Sale & Stock Report (SSR-001…024) — per-cycle statement, live-confirmed columns
 # ---------------------------------------------------------------------------
@@ -3614,7 +3616,8 @@ type Query {
   search(query: String!, types: [SearchEntityType!], limit: Int = 20): SearchResult!
 
   # Identity & org
-  users(filter: UserFilter, pagination: PaginationInput): UserConnection! @auth(requires: "admin:user_manage")
+  users(filter: UserFilter, pagination: PaginationInput): UserConnection!
+    @auth(requires: "admin:user_manage")
   user(id: ID!): User @auth(requires: "admin:user_manage")
   roles: [Role!]! @auth(requires: "admin:role_manage")
   permissionCatalogue: [String!]! @auth(requires: "admin:role_manage")
@@ -3623,31 +3626,45 @@ type Query {
   designations: [Designation!]!
 
   # Catalogue
-  products(filter: ProductFilter, sort: ProductSort, pagination: PaginationInput): ProductConnection! @auth(requires: "product:read")
+  products(
+    filter: ProductFilter
+    sort: ProductSort
+    pagination: PaginationInput
+  ): ProductConnection! @auth(requires: "product:read")
   product(id: ID!): Product @auth(requires: "product:read")
   productByCode(code: String!, system: String): Product @auth(requires: "product:read")
   uoms: [Uom!]!
   productCategories: [ProductCategory!]!
-  vendors(filter: VendorFilter, pagination: PaginationInput): VendorConnection! @auth(requires: "vendor:read")
+  vendors(filter: VendorFilter, pagination: PaginationInput): VendorConnection!
+    @auth(requires: "vendor:read")
   vendor(id: ID!): Vendor @auth(requires: "vendor:read")
   mpps(filter: MppFilter, pagination: PaginationInput): MppConnection! @auth(requires: "mpp:read")
   mpp(id: ID!): Mpp @auth(requires: "mpp:read")
 
   # Indents
-  indents(filter: IndentFilter, sort: IndentSort, pagination: PaginationInput): IndentConnection! @auth(requires: "indent:read")
+  indents(filter: IndentFilter, sort: IndentSort, pagination: PaginationInput): IndentConnection!
+    @auth(requires: "indent:read")
   indent(id: ID!): Indent @auth(requires: "indent:read")
   indentByNumber(indentNumber: String!): Indent @auth(requires: "indent:read")
 
   # Approvals & workflow
-  approvalTasks(filter: ApprovalTaskFilter, pagination: PaginationInput): ApprovalTaskConnection! @auth(requires: "approval:act")
+  approvalTasks(filter: ApprovalTaskFilter, pagination: PaginationInput): ApprovalTaskConnection!
+    @auth(requires: "approval:act")
   approvalTask(id: ID!): ApprovalTask @auth(requires: "approval:act")
   myDelegations: [Delegation!]! @auth(requires: "approval:delegate")
   workflowDefinitions: [WorkflowDefinition!]! @auth(requires: "admin:workflow_manage")
-  simulateWorkflow(input: SimulateWorkflowInput!): WorkflowSimulation! @auth(requires: "admin:workflow_manage")
+  simulateWorkflow(input: SimulateWorkflowInput!): WorkflowSimulation!
+    @auth(requires: "admin:workflow_manage")
 
   # Procurement
-  procurementQueue(filter: ProcurementQueueFilter, pagination: PaginationInput): ProcurementQueueConnection! @auth(requires: "purchase_request:read")
-  purchaseOrders(filter: PurchaseOrderFilter, pagination: PaginationInput): PurchaseOrderConnection! @auth(requires: "purchase_order:read")
+  procurementQueue(
+    filter: ProcurementQueueFilter
+    pagination: PaginationInput
+  ): ProcurementQueueConnection! @auth(requires: "purchase_request:read")
+  purchaseOrders(
+    filter: PurchaseOrderFilter
+    pagination: PaginationInput
+  ): PurchaseOrderConnection! @auth(requires: "purchase_order:read")
   purchaseOrder(id: ID!): PurchaseOrder @auth(requires: "purchase_order:read")
   purchaseOrderByNumber(number: String!): PurchaseOrder @auth(requires: "purchase_order:read")
   sapPoLinesForIndentLine(indentLineId: ID!): [SapPoLine!]! @auth(requires: "sap_po:read")
@@ -3655,60 +3672,99 @@ type Query {
   # Receiving
   grns(filter: GrnFilter, pagination: PaginationInput): GrnConnection! @auth(requires: "grn:read")
   grn(id: ID!): Grn @auth(requires: "grn:read")
-  openPurchaseOrdersForReceipt(warehouseId: ID!, search: String): [PurchaseOrder!]! @auth(requires: "grn:create")
+  openPurchaseOrdersForReceipt(warehouseId: ID!, search: String): [PurchaseOrder!]!
+    @auth(requires: "grn:create")
 
   # Logistics
-  transferOrders(filter: TransferOrderFilter, pagination: PaginationInput): TransferOrderConnection! @auth(requires: "transfer:read")
+  transferOrders(
+    filter: TransferOrderFilter
+    pagination: PaginationInput
+  ): TransferOrderConnection! @auth(requires: "transfer:read")
   transferOrder(id: ID!): TransferOrder @auth(requires: "transfer:read")
-  stns(filter: StnFilter, pagination: PaginationInput): StnConnection! @auth(requires: "transfer:read")
+  stns(filter: StnFilter, pagination: PaginationInput): StnConnection!
+    @auth(requires: "transfer:read")
   stn(id: ID!): Stn @auth(requires: "transfer:read")
   stnByNumber(stnNumber: String!): Stn @auth(requires: "transfer:read")
-  openDiscrepancies(pagination: PaginationInput): [TransitDiscrepancy!]! @auth(requires: "transfer:resolve_discrepancy")
+  openDiscrepancies(pagination: PaginationInput): [TransitDiscrepancy!]!
+    @auth(requires: "transfer:resolve_discrepancy")
 
   # Inventory
-  inventory(filter: InventoryFilter, sort: InventorySort, pagination: PaginationInput): InventoryConnection! @auth(requires: "inventory:read")
-  stockTransactions(filter: StockTransactionFilter, pagination: PaginationInput): StockTransactionConnection! @auth(requires: "inventory:read")
-  stockPeriodSummary(warehouseId: ID!, productIds: [ID!], period: DateRangeInput!): [StockPeriodSummary!]! @auth(requires: "inventory:read")
+  inventory(
+    filter: InventoryFilter
+    sort: InventorySort
+    pagination: PaginationInput
+  ): InventoryConnection! @auth(requires: "inventory:read")
+  stockTransactions(
+    filter: StockTransactionFilter
+    pagination: PaginationInput
+  ): StockTransactionConnection! @auth(requires: "inventory:read")
+  stockPeriodSummary(
+    warehouseId: ID!
+    productIds: [ID!]
+    period: DateRangeInput!
+  ): [StockPeriodSummary!]! @auth(requires: "inventory:read")
   stockAdjustment(id: ID!): StockAdjustment @auth(requires: "inventory:read")
   stockCount(id: ID!): StockCount @auth(requires: "inventory:count")
 
   # MPP distribution
-  advanceSales(filter: AdvanceSaleFilter, pagination: PaginationInput): AdvanceSaleConnection! @auth(requires: "advance_sale:read")
+  advanceSales(filter: AdvanceSaleFilter, pagination: PaginationInput): AdvanceSaleConnection!
+    @auth(requires: "advance_sale:read")
   advanceSale(id: ID!): AdvanceSale @auth(requires: "advance_sale:read")
   advanceSaleByCode(saleCode: String!): AdvanceSale @auth(requires: "advance_sale:read")
-  generalSales(filter: GeneralSaleFilter, pagination: PaginationInput): GeneralSaleConnection! @auth(requires: "general_sale:read")
+  generalSales(filter: GeneralSaleFilter, pagination: PaginationInput): GeneralSaleConnection!
+    @auth(requires: "general_sale:read")
 
   # Cycles & reconciliation
   activeCycle: PaymentCycle
   cycleMonths(year: Int): [CycleMonth!]! @auth(requires: "cycle:read")
-  saleEntries(cycleId: ID!, locationIds: [ID!], status: [SaleEntryStatus!], pagination: PaginationInput): [SaleEntry!]! @auth(requires: "reconciliation:read")
-  reconciliationSheets(filter: ReconciliationSheetFilter, pagination: PaginationInput): ReconciliationSheetConnection! @auth(requires: "reconciliation:read")
+  saleEntries(
+    cycleId: ID!
+    locationIds: [ID!]
+    status: [SaleEntryStatus!]
+    pagination: PaginationInput
+  ): [SaleEntry!]! @auth(requires: "reconciliation:read")
+  reconciliationSheets(
+    filter: ReconciliationSheetFilter
+    pagination: PaginationInput
+  ): ReconciliationSheetConnection! @auth(requires: "reconciliation:read")
   reconciliationSheet(id: ID!): ReconciliationSheet @auth(requires: "reconciliation:read")
-  myLocationReconciliation(cycleId: ID, pagination: PaginationInput): ReconciliationRecordConnection! @auth(requires: "reconciliation:read_location")
-  mppLedger(filter: MppLedgerFilter, pagination: PaginationInput): MppLedgerConnection! @auth(requires: "reconciliation:read_location")
+  myLocationReconciliation(
+    cycleId: ID
+    pagination: PaginationInput
+  ): ReconciliationRecordConnection! @auth(requires: "reconciliation:read_location")
+  mppLedger(filter: MppLedgerFilter, pagination: PaginationInput): MppLedgerConnection!
+    @auth(requires: "reconciliation:read_location")
   importBatch(id: ID!): ImportBatch
 
   # Finance
-  invoices(filter: InvoiceFilter, pagination: PaginationInput): InvoiceConnection! @auth(requires: "invoice:read")
+  invoices(filter: InvoiceFilter, pagination: PaginationInput): InvoiceConnection!
+    @auth(requires: "invoice:read")
   invoice(id: ID!): Invoice @auth(requires: "invoice:read")
 
   # Documents
-  documents(filter: DocumentFilter, pagination: PaginationInput): DocumentConnection! @auth(requires: "finance_document:read")
+  documents(filter: DocumentFilter, pagination: PaginationInput): DocumentConnection!
+    @auth(requires: "finance_document:read")
   document(id: ID!): Document
 
   # Notifications
   notifications(filter: NotificationFilter, pagination: PaginationInput): NotificationConnection!
   notificationPreferences: [NotificationPreference!]!
-  notificationDeliveries(filter: NotificationDeliveryFilter, pagination: PaginationInput): NotificationDeliveryConnection! @auth(requires: "notification:read_delivery_logs")
-  notificationTemplates(code: String): [NotificationTemplate!]! @auth(requires: "notification:manage_templates")
-  messagingAnalytics(period: DateRangeInput, channel: NotificationChannel): MessagingAnalytics! @auth(requires: "notification:read_delivery_logs")
+  notificationDeliveries(
+    filter: NotificationDeliveryFilter
+    pagination: PaginationInput
+  ): NotificationDeliveryConnection! @auth(requires: "notification:read_delivery_logs")
+  notificationTemplates(code: String): [NotificationTemplate!]!
+    @auth(requires: "notification:manage_templates")
+  messagingAnalytics(period: DateRangeInput, channel: NotificationChannel): MessagingAnalytics!
+    @auth(requires: "notification:read_delivery_logs")
 
   # Reports & exports
   exportJob(id: ID!): ExportJob
   savedFilters(listKey: String!): [SavedFilter!]!
 
   # Audit & admin
-  auditLog(filter: AuditFilter, pagination: PaginationInput): AuditEntryConnection! @auth(requires: "audit:read")
+  auditLog(filter: AuditFilter, pagination: PaginationInput): AuditEntryConnection!
+    @auth(requires: "audit:read")
   settings(keys: [String!]): [Setting!]! @auth(requires: "admin:settings_manage")
   numberSeries: [NumberSeries!]! @auth(requires: "admin:number_series_manage")
   featureFlags: [FeatureFlag!]!
@@ -3718,7 +3774,8 @@ type Query {
   saleStockReport(input: SaleStockReportInput!): StockStatement @auth(requires: "inventory:read")
   reportProducts: [ReportProduct!]! @auth(requires: "inventory:read")
   physicalCounts(locationId: ID!): [PhysicalCount!]! @auth(requires: "inventory:read")
-  otherSales(locationIds: [ID!], pagination: PaginationInput): [OtherSale!]! @auth(requires: "advance_sale:read")
+  otherSales(locationIds: [ID!], pagination: PaginationInput): [OtherSale!]!
+    @auth(requires: "advance_sale:read")
   sapMaterialMappings: [SapMaterialMapping!]! @auth(requires: "sap_po:read")
 
   # Offline sync
@@ -3727,33 +3784,62 @@ type Query {
 
 type Mutation {
   # Indents
-  createIndent(input: CreateIndentInput!): IndentPayload! @auth(requires: "indent:create") @idempotent
+  createIndent(input: CreateIndentInput!): IndentPayload!
+    @auth(requires: "indent:create")
+    @idempotent
   updateIndent(input: UpdateIndentInput!): IndentPayload! @auth(requires: "indent:update")
-  submitIndent(input: SubmitIndentInput!): IndentPayload! @auth(requires: "indent:submit") @idempotent
+  submitIndent(input: SubmitIndentInput!): IndentPayload!
+    @auth(requires: "indent:submit")
+    @idempotent
   cancelIndent(input: CancelIndentInput!): IndentPayload! @auth(requires: "indent:cancel")
   deleteIndentDraft(id: ID!): DeletePayload! @auth(requires: "indent:delete_draft")
   copyIndent(id: ID!): IndentPayload! @auth(requires: "indent:create")
 
   # Approvals
-  approveIndent(input: ApproveIndentInput!): ApprovalPayload! @auth(requires: "approval:act") @idempotent
-  approveIndentForTransfer(input: ApproveIndentForTransferInput!): ApprovalPayload! @auth(requires: "approval:act") @idempotent
-  rejectIndent(input: RejectIndentInput!): ApprovalPayload! @auth(requires: "approval:act") @idempotent
-  returnIndent(input: ReturnIndentInput!): ApprovalPayload! @auth(requires: "approval:act") @idempotent
-  bulkApprovalAction(input: BulkApprovalInput!): BulkApprovalPayload! @auth(requires: "approval:act") @idempotent
-  createDelegation(input: CreateDelegationInput!): DelegationPayload! @auth(requires: "approval:delegate")
+  approveIndent(input: ApproveIndentInput!): ApprovalPayload!
+    @auth(requires: "approval:act")
+    @idempotent
+  approveIndentForTransfer(input: ApproveIndentForTransferInput!): ApprovalPayload!
+    @auth(requires: "approval:act")
+    @idempotent
+  rejectIndent(input: RejectIndentInput!): ApprovalPayload!
+    @auth(requires: "approval:act")
+    @idempotent
+  returnIndent(input: ReturnIndentInput!): ApprovalPayload!
+    @auth(requires: "approval:act")
+    @idempotent
+  bulkApprovalAction(input: BulkApprovalInput!): BulkApprovalPayload!
+    @auth(requires: "approval:act")
+    @idempotent
+  createDelegation(input: CreateDelegationInput!): DelegationPayload!
+    @auth(requires: "approval:delegate")
   revokeDelegation(id: ID!): DelegationPayload! @auth(requires: "approval:delegate")
-  reassignApprovalTask(taskId: ID!, assigneeUserId: ID!, reason: String!): ApprovalPayload! @auth(requires: "approval:reassign")
-  saveWorkflowDraft(input: SaveWorkflowDraftInput!): WorkflowVersionPayload! @auth(requires: "admin:workflow_manage")
-  publishWorkflowVersion(versionId: ID!): WorkflowVersionPayload! @auth(requires: "admin:workflow_manage")
+  reassignApprovalTask(taskId: ID!, assigneeUserId: ID!, reason: String!): ApprovalPayload!
+    @auth(requires: "approval:reassign")
+  saveWorkflowDraft(input: SaveWorkflowDraftInput!): WorkflowVersionPayload!
+    @auth(requires: "admin:workflow_manage")
+  publishWorkflowVersion(versionId: ID!): WorkflowVersionPayload!
+    @auth(requires: "admin:workflow_manage")
 
   # Procurement
-  createPurchaseOrder(input: CreatePurchaseOrderInput!): PurchaseOrderPayload! @auth(requires: "purchase_order:create") @idempotent
-  updatePurchaseOrder(input: UpdatePurchaseOrderInput!): PurchaseOrderPayload! @auth(requires: "purchase_order:update")
-  submitPurchaseOrder(input: SubmitPurchaseOrderInput!): PurchaseOrderPayload! @auth(requires: "purchase_order:create") @idempotent
-  decidePurchaseOrder(input: ApprovePurchaseOrderInput!): PurchaseOrderPayload! @auth(requires: "purchase_order:approve") @idempotent
-  sendPurchaseOrder(input: SendPurchaseOrderInput!): PurchaseOrderPayload! @auth(requires: "purchase_order:send") @idempotent
-  cancelPurchaseOrder(input: CancelPurchaseOrderInput!): PurchaseOrderPayload! @auth(requires: "purchase_order:cancel")
-  shortClosePurchaseOrder(input: ShortClosePurchaseOrderInput!): PurchaseOrderPayload! @auth(requires: "purchase_order:close")
+  createPurchaseOrder(input: CreatePurchaseOrderInput!): PurchaseOrderPayload!
+    @auth(requires: "purchase_order:create")
+    @idempotent
+  updatePurchaseOrder(input: UpdatePurchaseOrderInput!): PurchaseOrderPayload!
+    @auth(requires: "purchase_order:update")
+  submitPurchaseOrder(input: SubmitPurchaseOrderInput!): PurchaseOrderPayload!
+    @auth(requires: "purchase_order:create")
+    @idempotent
+  decidePurchaseOrder(input: ApprovePurchaseOrderInput!): PurchaseOrderPayload!
+    @auth(requires: "purchase_order:approve")
+    @idempotent
+  sendPurchaseOrder(input: SendPurchaseOrderInput!): PurchaseOrderPayload!
+    @auth(requires: "purchase_order:send")
+    @idempotent
+  cancelPurchaseOrder(input: CancelPurchaseOrderInput!): PurchaseOrderPayload!
+    @auth(requires: "purchase_order:cancel")
+  shortClosePurchaseOrder(input: ShortClosePurchaseOrderInput!): PurchaseOrderPayload!
+    @auth(requires: "purchase_order:close")
 
   # Receiving
   createGrn(input: CreateGrnInput!): GrnPayload! @auth(requires: "grn:create") @idempotent
@@ -3763,43 +3849,81 @@ type Mutation {
   verifyGrn(input: VerifyGrnInput!): GrnPayload! @auth(requires: "invoice:verify")
 
   # Logistics
-  createTransferOrder(input: CreateTransferOrderInput!): TransferOrderPayload! @auth(requires: "transfer:create") @idempotent
-  cancelTransferOrder(id: ID!, reason: String!): TransferOrderPayload! @auth(requires: "transfer:cancel")
+  createTransferOrder(input: CreateTransferOrderInput!): TransferOrderPayload!
+    @auth(requires: "transfer:create")
+    @idempotent
+  cancelTransferOrder(id: ID!, reason: String!): TransferOrderPayload!
+    @auth(requires: "transfer:cancel")
   createStn(input: CreateStnInput!): StnPayload! @auth(requires: "transfer:plan") @idempotent
-  dispatchStn(input: DispatchStnInput!): StnPayload! @auth(requires: "transfer:dispatch") @idempotent
+  dispatchStn(input: DispatchStnInput!): StnPayload!
+    @auth(requires: "transfer:dispatch")
+    @idempotent
   receiveStn(input: ReceiveStnInput!): StnPayload! @auth(requires: "transfer:receive") @idempotent
-  resolveTransitDiscrepancy(input: ResolveDiscrepancyInput!): DiscrepancyPayload! @auth(requires: "transfer:resolve_discrepancy") @idempotent
+  resolveTransitDiscrepancy(input: ResolveDiscrepancyInput!): DiscrepancyPayload!
+    @auth(requires: "transfer:resolve_discrepancy")
+    @idempotent
 
   # Inventory
-  requestStockAdjustment(input: RequestStockAdjustmentInput!): StockAdjustmentPayload! @auth(requires: "inventory:adjust_request") @idempotent
-  decideStockAdjustment(input: DecideStockAdjustmentInput!): StockAdjustmentPayload! @auth(requires: "inventory:adjust_approve") @idempotent
-  startStockCount(input: StartStockCountInput!): StockCountPayload! @auth(requires: "inventory:count")
-  recordStockCount(input: RecordStockCountInput!): StockCountPayload! @auth(requires: "inventory:count") @idempotent
+  requestStockAdjustment(input: RequestStockAdjustmentInput!): StockAdjustmentPayload!
+    @auth(requires: "inventory:adjust_request")
+    @idempotent
+  decideStockAdjustment(input: DecideStockAdjustmentInput!): StockAdjustmentPayload!
+    @auth(requires: "inventory:adjust_approve")
+    @idempotent
+  startStockCount(input: StartStockCountInput!): StockCountPayload!
+    @auth(requires: "inventory:count")
+  recordStockCount(input: RecordStockCountInput!): StockCountPayload!
+    @auth(requires: "inventory:count")
+    @idempotent
   submitStockCount(countId: ID!): StockCountPayload! @auth(requires: "inventory:count")
 
   # MPP distribution
-  createAdvanceSale(input: CreateAdvanceSaleInput!): AdvanceSalePayload! @auth(requires: "advance_sale:create") @idempotent
-  cancelAdvanceSale(input: CancelAdvanceSaleInput!): AdvanceSalePayload! @auth(requires: "advance_sale:cancel") @idempotent
-  uploadPod(input: UploadPodInput!): PodPayload! @auth(requires: "advance_sale:upload_pod") @idempotent
+  createAdvanceSale(input: CreateAdvanceSaleInput!): AdvanceSalePayload!
+    @auth(requires: "advance_sale:create")
+    @idempotent
+  cancelAdvanceSale(input: CancelAdvanceSaleInput!): AdvanceSalePayload!
+    @auth(requires: "advance_sale:cancel")
+    @idempotent
+  uploadPod(input: UploadPodInput!): PodPayload!
+    @auth(requires: "advance_sale:upload_pod")
+    @idempotent
   regenerateSaleReceipt(id: ID!): AdvanceSalePayload! @auth(requires: "advance_sale:read")
-  createGeneralSale(input: CreateGeneralSaleInput!): GeneralSalePayload! @auth(requires: "general_sale:create") @idempotent
-  dispatchGeneralSale(input: DispatchGeneralSaleInput!): GeneralSalePayload! @auth(requires: "general_sale:dispatch") @idempotent
-  createOtherSale(input: CreateOtherSaleInput!): OtherSalePayload! @auth(requires: "advance_sale:create") @idempotent
-  generateStockStatement(cycleId: ID!): StockStatementPayload! @auth(requires: "inventory:adjust_approve")
-  saveStockStatementRows(input: SaveStockStatementRowsInput!): StockStatementPayload! @auth(requires: "inventory:read") @idempotent
-  setStockReportOpenColumns(input: SetStockReportOpenColumnsInput!): StockStatementPayload! @auth(requires: "inventory:adjust_approve")
+  createGeneralSale(input: CreateGeneralSaleInput!): GeneralSalePayload!
+    @auth(requires: "general_sale:create")
+    @idempotent
+  dispatchGeneralSale(input: DispatchGeneralSaleInput!): GeneralSalePayload!
+    @auth(requires: "general_sale:dispatch")
+    @idempotent
+  createOtherSale(input: CreateOtherSaleInput!): OtherSalePayload!
+    @auth(requires: "advance_sale:create")
+    @idempotent
+  generateStockStatement(cycleId: ID!): StockStatementPayload!
+    @auth(requires: "inventory:adjust_approve")
+  saveStockStatementRows(input: SaveStockStatementRowsInput!): StockStatementPayload!
+    @auth(requires: "inventory:read")
+    @idempotent
+  setStockReportOpenColumns(input: SetStockReportOpenColumnsInput!): StockStatementPayload!
+    @auth(requires: "inventory:adjust_approve")
   setMonthLock(input: SetMonthLockInput!): CycleMonthPayload! @auth(requires: "cycle:close")
-  upsertReportProduct(input: UpsertReportProductInput!): [ReportProduct!]! @auth(requires: "admin:master_manage")
+  upsertReportProduct(input: UpsertReportProductInput!): [ReportProduct!]!
+    @auth(requires: "admin:master_manage")
   removeReportProduct(productId: ID!): [ReportProduct!]! @auth(requires: "admin:master_manage")
-  changeStockCondition(input: ChangeStockConditionInput!): Boolean! @auth(requires: "inventory:adjust_request") @idempotent
-  savePhysicalCount(input: SavePhysicalCountInput!): [PhysicalCount!]! @auth(requires: "inventory:count")
+  changeStockCondition(input: ChangeStockConditionInput!): Boolean!
+    @auth(requires: "inventory:adjust_request")
+    @idempotent
+  savePhysicalCount(input: SavePhysicalCountInput!): [PhysicalCount!]!
+    @auth(requires: "inventory:count")
   postStn(input: PostStnInput!): StnPayload! @auth(requires: "transfer:dispatch") @idempotent
   deleteStnDraft(id: ID!): DeletePayload! @auth(requires: "transfer:create")
-  generateSapOrderFiles(input: SapOrderGenerateInput!): SapOrderGeneration! @auth(requires: "sap_po:import") @idempotent
-  saveSapMaterialMapping(input: SaveSapMaterialMappingInput!): SapMaterialMapping! @auth(requires: "sap_po:import")
+  generateSapOrderFiles(input: SapOrderGenerateInput!): SapOrderGeneration!
+    @auth(requires: "sap_po:import")
+    @idempotent
+  saveSapMaterialMapping(input: SaveSapMaterialMappingInput!): SapMaterialMapping!
+    @auth(requires: "sap_po:import")
 
   # Cycles & reconciliation
-  createCycleMonth(input: CreateCycleMonthInput!): CycleMonthPayload! @auth(requires: "cycle:manage")
+  createCycleMonth(input: CreateCycleMonthInput!): CycleMonthPayload!
+    @auth(requires: "cycle:manage")
   upsertCycle(input: UpsertCycleInput!): CyclePayload! @auth(requires: "cycle:manage")
   deleteCycle(id: ID!): DeletePayload! @auth(requires: "cycle:manage")
   activateCycle(id: ID!): CyclePayload! @auth(requires: "cycle:activate")
@@ -3808,18 +3932,28 @@ type Mutation {
   startImport(input: StartImportInput!): ImportPayload! @idempotent
   commitImport(input: CommitImportInput!): ImportPayload! @idempotent
   discardImport(batchId: ID!): ImportPayload!
-  publishReconciliation(sheetId: ID!): ReconciliationPayload! @auth(requires: "reconciliation:import_post_sheet")
-  resolveReconciliationException(input: ResolveReconciliationExceptionInput!): ReconciliationPayload! @auth(requires: "reconciliation:import_post_sheet")
-  acknowledgeReconciliation(input: AcknowledgeReconciliationInput!): ReconciliationPayload! @auth(requires: "reconciliation:acknowledge")
+  publishReconciliation(sheetId: ID!): ReconciliationPayload!
+    @auth(requires: "reconciliation:import_post_sheet")
+  resolveReconciliationException(
+    input: ResolveReconciliationExceptionInput!
+  ): ReconciliationPayload! @auth(requires: "reconciliation:import_post_sheet")
+  acknowledgeReconciliation(input: AcknowledgeReconciliationInput!): ReconciliationPayload!
+    @auth(requires: "reconciliation:acknowledge")
 
   # Finance
-  createInvoice(input: CreateInvoiceInput!): InvoicePayload! @auth(requires: "invoice:create") @idempotent
+  createInvoice(input: CreateInvoiceInput!): InvoicePayload!
+    @auth(requires: "invoice:create")
+    @idempotent
   rematchInvoice(id: ID!): InvoicePayload! @auth(requires: "invoice:match")
-  resolveInvoiceException(input: ResolveInvoiceExceptionInput!): InvoicePayload! @auth(requires: "invoice:approve_exception")
-  recordPayment(input: RecordPaymentInput!): InvoicePayload! @auth(requires: "payment:record") @idempotent
+  resolveInvoiceException(input: ResolveInvoiceExceptionInput!): InvoicePayload!
+    @auth(requires: "invoice:approve_exception")
+  recordPayment(input: RecordPaymentInput!): InvoicePayload!
+    @auth(requires: "payment:record")
+    @idempotent
 
   # Documents (binary transfer via REST pre-signed URLs)
-  linkDocument(documentId: ID!, entityType: String!, entityId: ID!, role: String): Document! @auth(requires: "document:upload")
+  linkDocument(documentId: ID!, entityType: String!, entityId: ID!, role: String): Document!
+    @auth(requires: "document:upload")
   deleteDocument(id: ID!, reason: String!): DeletePayload! @auth(requires: "document:delete")
 
   # Notifications
@@ -3827,12 +3961,16 @@ type Mutation {
   updateNotificationPreferences(input: [NotificationPreferenceInput!]!): [NotificationPreference!]!
   registerPushDevice(input: RegisterPushDeviceInput!): Boolean!
   unregisterPushDevice(token: String!): Boolean!
-  saveNotificationTemplate(input: SaveNotificationTemplateInput!): NotificationTemplatePayload! @auth(requires: "notification:manage_templates")
-  resendNotification(deliveryId: ID!): NotificationDelivery! @auth(requires: "notification:send_manual")
+  saveNotificationTemplate(input: SaveNotificationTemplateInput!): NotificationTemplatePayload!
+    @auth(requires: "notification:manage_templates")
+  resendNotification(deliveryId: ID!): NotificationDelivery!
+    @auth(requires: "notification:send_manual")
   replayDeadLetter(id: ID!): Boolean! @auth(requires: "admin:integration_manage")
 
   # Reports & exports
-  requestExport(input: RequestExportInput!): ExportPayload! @auth(requires: "report:export") @idempotent
+  requestExport(input: RequestExportInput!): ExportPayload!
+    @auth(requires: "report:export")
+    @idempotent
   saveFilter(input: SaveFilterInput!): SavedFilter!
   deleteSavedFilter(id: ID!): DeletePayload!
 
@@ -3847,12 +3985,16 @@ type Mutation {
   revokeAllMySessions: Int!
   saveProduct(input: SaveProductInput!): ProductPayload! @auth(requires: "product:update")
   saveVendor(input: SaveVendorInput!): VendorPayload! @auth(requires: "vendor:update")
-  setVendorProducts(input: SetVendorProductsInput!): VendorPayload! @auth(requires: "vendor:map_products")
+  setVendorProducts(input: SetVendorProductsInput!): VendorPayload!
+    @auth(requires: "vendor:map_products")
   saveMpp(input: SaveMppInput!): MppPayload! @auth(requires: "mpp:manage")
   saveLocation(input: SaveLocationInput!): LocationPayload! @auth(requires: "admin:master_manage")
-  updateSetting(input: UpdateSettingInput!): SettingPayload! @auth(requires: "admin:settings_manage")
-  updateNumberSeries(input: UpdateNumberSeriesInput!): NumberSeriesPayload! @auth(requires: "admin:number_series_manage")
-  setFeatureFlag(input: SetFeatureFlagInput!): FeatureFlag! @auth(requires: "admin:feature_flag_manage")
+  updateSetting(input: UpdateSettingInput!): SettingPayload!
+    @auth(requires: "admin:settings_manage")
+  updateNumberSeries(input: UpdateNumberSeriesInput!): NumberSeriesPayload!
+    @auth(requires: "admin:number_series_manage")
+  setFeatureFlag(input: SetFeatureFlagInput!): FeatureFlag!
+    @auth(requires: "admin:feature_flag_manage")
 }
 
 type Subscription {

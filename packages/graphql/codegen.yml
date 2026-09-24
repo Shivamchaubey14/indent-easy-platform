@@ -1,0 +1,22 @@
+schema: schema/schema.graphql
+generates:
+  src/generated/types.ts:
+    plugins:
+      - add:
+          content: '/* Generated from schema/schema.graphql by `pnpm codegen`. Do not edit. */'
+      - typescript
+    config:
+      enumsAsConst: true
+      namingConvention:
+        enumValues: keep
+      strictScalars: true
+      useTypeImports: true
+      scalars:
+        Decimal: string
+        DateTime: string
+        Date: string
+        PhoneNumber: string
+        EmailAddress: string
+        JSON: unknown
+        CurrencyCode: string
+        UUID: string

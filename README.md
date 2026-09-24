@@ -15,13 +15,13 @@ It covers:
 
 ## Stack
 
-| Layer | Technology |
-|---|---|
-| API | Node.js 24, TypeScript, Express 5, GraphQL Yoga, Drizzle ORM, BullMQ |
-| Web | React, Vite, TanStack Router/Query, Tailwind CSS |
-| Mobile | React Native (Expo), SQLite offline store |
-| Data | PostgreSQL 16, Redis 7, S3-compatible object storage |
-| Tooling | pnpm workspaces, Turborepo, Docker |
+| Layer   | Technology                                                           |
+| ------- | -------------------------------------------------------------------- |
+| API     | Node.js 24, TypeScript, Express 5, GraphQL Yoga, Drizzle ORM, BullMQ |
+| Web     | React, Vite, TanStack Router/Query, Tailwind CSS                     |
+| Mobile  | React Native (Expo), SQLite offline store                            |
+| Data    | PostgreSQL 16, Redis 7, S3-compatible object storage                 |
+| Tooling | pnpm workspaces, Turborepo, Docker                                   |
 
 ## Getting started
 
@@ -34,12 +34,12 @@ pnpm infra:up      # PostgreSQL, Redis, MinIO, Mailpit
 pnpm db:smoke      # verify database invariants
 ```
 
-| Service | URL |
-|---|---|
-| PostgreSQL | `localhost:5432` (db `indent_easy`) |
-| Redis | `localhost:6380` |
-| MinIO console | http://localhost:9001 |
-| Mailpit | http://localhost:8025 |
+| Service       | URL                                 |
+| ------------- | ----------------------------------- |
+| PostgreSQL    | `localhost:5432` (db `indent_easy`) |
+| Redis         | `localhost:6380`                    |
+| MinIO console | http://localhost:9001               |
+| Mailpit       | http://localhost:8025               |
 
 ## Repository layout
 
@@ -60,6 +60,6 @@ docs/            SRS, API contracts, ADRs, runbooks
 ## Documentation
 
 - Requirements: [`docs/srs/Indent-Easy-SRS.md`](docs/srs/Indent-Easy-SRS.md)
-- GraphQL contract: [`docs/api/schema.graphql`](docs/api/schema.graphql)
+- GraphQL contract: [`packages/graphql/schema/schema.graphql`](packages/graphql/schema/schema.graphql)
 - REST contract: [`docs/api/openapi.yaml`](docs/api/openapi.yaml)
 - Build progress: [`docs/PROGRESS.md`](docs/PROGRESS.md)
