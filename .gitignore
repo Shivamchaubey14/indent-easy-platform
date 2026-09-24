@@ -21,4 +21,4 @@ apps/mobile/ios/
 legacy-data/
 
 # Generated code (rebuilt by `turbo run codegen`)
-src/generated/
+**/src/generated/
