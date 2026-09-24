@@ -11,6 +11,9 @@ importers:
 
   .:
     devDependencies:
+      '@redocly/cli':
+        specifier: ^2.54.2
+        version: 2.54.2
       '@types/node':
         specifier: ^24.13.6
         version: 24.13.6
@@ -121,7 +124,7 @@ importers:
         specifier: ^1.71.0
         version: 1.71.0(change-case@5.4.4)(tailwindcss@4.3.3)(typescript@5.9.3)(zod@4.6.5)
       graphql:
-        specifier: ^16.14.2
+        specifier: ^16.11.0
         version: 16.14.2
       marked:
         specifier: ^18.0.14
@@ -1515,6 +1518,11 @@ packages:
   '@pkgjs/parseargs@0.11.0':
     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
     engines: {node: '>=14'}
+
+  '@redocly/cli@2.54.2':
+    resolution: {integrity: sha512-YQ53kSQV/zpYSdY3WiQvf7JxuVLD8jTEX37YOY6MS+G3tyHDCeONpUkAt6qr9n2/nmGm6m+A+PB/mGFvhkt1uQ==}
+    engines: {node: '>=22.12.0 || >=20.19.0 <21.0.0', npm: '>=10'}
+    hasBin: true
 
   '@repeaterjs/repeater@3.1.0':
     resolution: {integrity: sha512-TaoVksZRSx2KWYYpyLQtMQXXeS98VsgZImzW65xmiVgbYhXLk+aEsmzPLirqVuE4/XuUapH2iMtxUzaBNDzdSQ==}
@@ -6383,6 +6391,8 @@ snapshots:
 
   '@pkgjs/parseargs@0.11.0':
     optional: true
+
+  '@redocly/cli@2.54.2': {}
 
   '@repeaterjs/repeater@3.1.0': {}
 

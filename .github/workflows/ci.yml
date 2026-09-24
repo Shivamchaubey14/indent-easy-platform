@@ -1,0 +1,126 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [dev, main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '24'
+  TURBO_TELEMETRY_DISABLED: '1'
+
+jobs:
+  checks:
+    name: Format, types, unit tests, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Formatting
+        run: pnpm format:check
+      - name: Typecheck, unit tests and build
+        run: pnpm turbo run typecheck test build
+      - name: OpenAPI contract lint
+        run: pnpm contracts:lint
+      - name: Upload documentation site
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-docs
+          path: apps/docs/dist
+          if-no-files-found: error
+          retention-days: 14
+
+  database:
+    name: Migrations, invariants, RLS
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: indent_easy
+          POSTGRES_USER: ie
+          POSTGRES_PASSWORD: ie_ci_only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U ie -d indent_easy"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      PGHOST: localhost
+      PGUSER: ie
+      PGPASSWORD: ie_ci_only
+      PGDATABASE: indent_easy
+      MIGRATION_DATABASE_URL: postgres://ie:ie_ci_only@localhost:5432/indent_easy
+      DATABASE_URL: postgres://ie_app:ie_app_ci_only@localhost:5432/indent_easy
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Give the app role a login
+        run: sh database/init/10-app-role.sh
+        env:
+          POSTGRES_USER: ie
+          POSTGRES_DB: indent_easy
+          IE_APP_PASSWORD: ie_app_ci_only
+      - name: Apply migrations
+        run: pnpm db:migrate
+      - name: Schema and migrations agree (no drift)
+        run: |
+          pnpm db:generate
+          if [ -n "$(git status --porcelain database/migrations)" ]; then
+            echo "::error::drizzle-kit generated a migration: packages/db/src/schema.ts and database/migrations disagree"
+            git status --porcelain database/migrations
+            exit 1
+          fi
+      - name: Seed
+        run: for f in database/seeds/*.sql; do psql -X -v ON_ERROR_STOP=1 -q -f "$f"; done
+      - name: Database invariants
+        run: sh scripts/ci/assert-db-smoke.sh
+      - name: Integration tests (as the app role)
+        run: pnpm test:integration
+
+  docs-deploy:
+    name: Publish API docs
+    needs: [checks, database]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: docs
+      url: https://indent-easy-docs.pages.dev
+    env:
+      HAS_CLOUDFLARE: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
+    steps:
+      - name: Skip when Cloudflare is not configured
+        if: env.HAS_CLOUDFLARE != 'true'
+        run: echo "::notice::CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID not set; docs not published"
+      - uses: actions/download-artifact@v4
+        if: env.HAS_CLOUDFLARE == 'true'
+        with:
+          name: api-docs
+          path: dist
+      - name: Deploy to Cloudflare Pages (behind Cloudflare Access)
+        if: env.HAS_CLOUDFLARE == 'true'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=indent-easy-docs --branch=main --commit-dirty=true

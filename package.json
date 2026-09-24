@@ -26,9 +26,11 @@
     "db:generate": "pnpm --filter @ie/db exec drizzle-kit generate",
     "test:integration": "turbo run test:integration",
     "docs:build": "turbo run build --filter=@ie/docs",
-    "docs:dev": "pnpm --filter @ie/docs dev"
+    "docs:dev": "pnpm --filter @ie/docs dev",
+    "contracts:lint": "redocly lint docs/api/openapi.yaml --format=summary"
   },
   "devDependencies": {
+    "@redocly/cli": "^2.54.2",
     "@types/node": "^24.13.6",
     "prettier": "^3.6.0",
     "turbo": "^2.5.0",
