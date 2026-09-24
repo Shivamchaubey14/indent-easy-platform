@@ -1,0 +1,98 @@
+name: Release
+
+# Promotes an already-built, already-tested image. Nothing is rebuilt here.
+#   vX.Y.Z-rc.N (tag on a dev commit)  → QA gets the image built from that commit
+#   vX.Y.Z      (tag on main)          → PROD gets the image QA tested, after approval
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  IMAGE_REPO: ghcr.io/shivamchaubey14/indent-easy-api
+
+jobs:
+  qa:
+    name: Release candidate to QA
+    if: contains(github.ref_name, '-rc.')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+    environment:
+      name: qa
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check the tag
+        run: |
+          if ! [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]]; then
+            echo "::error::release candidate tags look like v1.2.0-rc.1, got $GITHUB_REF_NAME"; exit 1
+          fi
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/dev; then
+            echo "::error::$GITHUB_REF_NAME is not on the dev branch; only commits that passed CI on dev have images"; exit 1
+          fi
+      - name: Point qa at the image built from this commit
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          source="$IMAGE_REPO:sha-${GITHUB_SHA::7}"
+          docker buildx imagetools inspect "$source" >/dev/null \
+            || { echo "::error::no image $source; did CI pass on dev for this commit?"; exit 1; }
+          docker buildx imagetools create --tag "$IMAGE_REPO:$GITHUB_REF_NAME" --tag "$IMAGE_REPO:qa" "$source"
+          echo "::notice::QA will deploy $GITHUB_REF_NAME (sha-${GITHUB_SHA::7}) within about two minutes"
+
+  production:
+    name: Release to PROD
+    if: ${{ !contains(github.ref_name, '-') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+    # Requires an approval from a reviewer configured on the production environment.
+    environment:
+      name: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Find the release candidate QA tested
+        id: rc
+        run: |
+          if ! [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::release tags look like v1.2.0, got $GITHUB_REF_NAME"; exit 1
+          fi
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$GITHUB_REF_NAME must be tagged on main (merge dev into main first)"; exit 1
+          fi
+          rc=$(git tag --list "$GITHUB_REF_NAME-rc.*" | sort -V | tail -n 1)
+          if [ -z "$rc" ]; then
+            echo "::error::no release candidate $GITHUB_REF_NAME-rc.N exists; QA must test one first"; exit 1
+          fi
+          # What ships must be exactly what QA tested: the code on main has to match the candidate.
+          if ! git diff --quiet "$rc" "$GITHUB_SHA" --; then
+            echo "::error::main differs from $rc, which QA tested. Changed files:"
+            git diff --stat "$rc" "$GITHUB_SHA" --
+            exit 1
+          fi
+          echo "name=$rc" >> "$GITHUB_OUTPUT"
+      - name: Point prod at the tested image
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RC: ${{ steps.rc.outputs.name }}
+        run: |
+          echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker buildx imagetools inspect "$IMAGE_REPO:$RC" >/dev/null \
+            || { echo "::error::no image $IMAGE_REPO:$RC"; exit 1; }
+          docker buildx imagetools create --tag "$IMAGE_REPO:$GITHUB_REF_NAME" --tag "$IMAGE_REPO:prod" "$IMAGE_REPO:$RC"
+          echo "::notice::PROD will deploy $GITHUB_REF_NAME (the image QA tested as $RC) within about two minutes"
