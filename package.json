@@ -18,10 +18,13 @@
     "infra:ps": "docker compose -f infrastructure/docker/compose.yaml ps",
     "db:psql": "docker compose -f infrastructure/docker/compose.yaml exec postgres psql -U ie -d indent_easy",
     "db:smoke": "docker compose -f infrastructure/docker/compose.yaml exec -T postgres psql -U ie -d indent_easy -f /checks/constraint-smoke-test.sql",
-    "db:reset": "docker compose -f infrastructure/docker/compose.yaml rm -sf postgres && docker volume rm -f indent-easy_pgdata && docker compose -f infrastructure/docker/compose.yaml up -d postgres",
+    "db:reset": "docker compose -f infrastructure/docker/compose.yaml rm -sf postgres && docker volume rm -f indent-easy_pgdata && docker compose -f infrastructure/docker/compose.yaml up -d --wait postgres && pnpm db:migrate && pnpm db:seed",
     "codegen": "turbo run codegen",
     "db:seed": "docker compose -f infrastructure/docker/compose.yaml exec -T postgres sh /seeds/apply.sh",
-    "api:dev": "pnpm --filter @ie/api dev"
+    "api:dev": "pnpm --filter @ie/api dev",
+    "db:migrate": "pnpm --filter @ie/db build && node --env-file-if-exists=.env packages/db/scripts/migrate.mjs",
+    "db:generate": "pnpm --filter @ie/db exec drizzle-kit generate",
+    "test:integration": "turbo run test:integration"
   },
   "devDependencies": {
     "@types/node": "^24.13.6",
