@@ -20,10 +20,14 @@ info:
     name: Proprietary
     identifier: LicenseRef-Proprietary
 servers:
-  - url: https://indent-easy.example.internal
-    description: Production (placeholder host; actual domain TBD)
-  - url: https://staging.indent-easy.example.internal
-    description: Staging
+  - url: http://localhost:4000
+    description: Local development
+  - url: http://dev.indent-easy.local
+    description: DEV (integration of the dev branch)
+  - url: http://qa.indent-easy.local
+    description: QA (testing and user acceptance)
+  - url: http://prod.indent-easy.local
+    description: PROD (interim host; HTTPS and the final domain arrive with the office server)
 security:
   - bearerAuth: []
 tags:

@@ -1,10 +1,11 @@
 import type { AppConfig } from '@ie/config';
 import compression from 'compression';
 import cors from 'cors';
-import express, { Router, type Express } from 'express';
+import express, { type Express } from 'express';
 import helmet from 'helmet';
 import type { GraphQLServer } from './graphql/server.js';
-import { Health, healthRouter } from './shared/health.js';
+import { REST_ROUTES, toExpressPath, type RestHandlers } from './rest/routes.js';
+import { Health, healthHandlers } from './shared/health.js';
 import { errorHandler, notFound } from './shared/http/problem.js';
 import { requestContext } from './shared/http/request-context.js';
 import type { Logger } from './shared/logging.js';
@@ -45,17 +46,22 @@ export function createApp({
   );
   app.use(compression({ threshold: 1024 }));
 
-  app.use(healthRouter(health));
   // Yoga parses its own bodies, so it is mounted before the JSON parser.
   app.use(graphql.graphqlEndpoint, (req, res, next) => {
     Promise.resolve(graphql(req, res, { req, res })).catch(next);
   });
+  app.use('/api', express.json({ limit: '1mb' }));
 
-  const v1 = Router();
-  v1.get('/version', (_req, res) => {
-    res.json(buildInfo);
-  });
-  app.use('/api/v1', express.json({ limit: '1mb' }), v1);
+  const handlers: RestHandlers = {
+    ...healthHandlers(health),
+    version: (_req, res) => {
+      res.json(buildInfo);
+    },
+  };
+  for (const route of REST_ROUTES) {
+    if ('listener' in route) continue;
+    app[route.method](toExpressPath(route.path), handlers[route.operationId]);
+  }
 
   app.use(notFound());
   app.use(errorHandler(logger));

@@ -4,22 +4,11 @@ import { useDisableIntrospection } from '@graphql-yoga/plugin-disable-introspect
 import type { Request, Response } from 'express';
 import { Kind, parse } from 'graphql';
 import { createSchema, createYoga, type Plugin, type YogaServerInstance } from 'graphql-yoga';
-import { configurationResolvers } from '../modules/configuration/index.js';
 import { currentContext } from '../shared/context.js';
 import type { Logger } from '../shared/logging.js';
 import type { GraphQLContext, Services } from './context.js';
 import { createErrorMask, notImplemented } from './errors.js';
-
-type Resolvers = Record<string, Record<string, unknown>>;
-
-/** Merges module resolver maps; each module owns distinct fields. */
-function mergeResolvers(...maps: Resolvers[]): Resolvers {
-  const merged: Resolvers = {};
-  for (const map of maps) {
-    for (const [type, fields] of Object.entries(map)) merged[type] = { ...merged[type], ...fields };
-  }
-  return merged;
-}
+import { moduleResolvers, type Resolvers } from './resolvers.js';
 
 /**
  * Root Query/Mutation fields in the contract that no module implements yet answer with a clear
@@ -66,7 +55,7 @@ export function createGraphQLServer({
   services,
   organizationId,
 }: GraphQLServerOptions): GraphQLServer {
-  const resolvers = stubUnimplementedRootFields(typeDefs, mergeResolvers(configurationResolvers));
+  const resolvers = stubUnimplementedRootFields(typeDefs, moduleResolvers);
   const plugins: Plugin[] = [
     EnvelopArmorPlugin({
       maxDepth: { n: config.graphql.maxDepth },
