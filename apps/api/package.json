@@ -4,6 +4,9 @@
   "private": true,
   "description": "Indent Easy API: GraphQL and REST over Express.",
   "type": "module",
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "dev": "tsx watch --env-file-if-exists=../../.env src/main.ts",
     "build": "tsc -p tsconfig.build.json && node scripts/api-surface.mjs",

@@ -1,0 +1,23 @@
+# Keep the build context small and free of secrets.
+**/node_modules
+**/dist
+**/coverage
+**/.turbo
+**/.expo
+.git
+.github
+.env
+.env.*
+!.env.example
+*.log
+
+# Not needed to build any image
+docs/srs
+docs/runbooks
+apps/docs/*
+!apps/docs/package.json
+infrastructure/vm
+database/checks
+database/seeds
+database/init
+tests

@@ -97,6 +97,50 @@ jobs:
       - name: Integration tests (as the app role)
         run: pnpm test:integration
 
+  image:
+    name: API image build and scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      HADOLINT_IMAGE: hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d
+      TRIVY_IMAGE: aquasec/trivy:0.74.0@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969
+    steps:
+      - uses: actions/checkout@v4
+      # Scanners run as digest-pinned images rather than third-party actions, so a moved tag
+      # cannot change what executes with this repository's token.
+      - name: Lint the Dockerfile
+        run: docker run --rm -i "$HADOLINT_IMAGE" hadolint - < infrastructure/docker/api.Dockerfile
+      - uses: docker/setup-buildx-action@v3
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infrastructure/docker/api.Dockerfile
+          tags: indent-easy/api:ci
+          load: true
+          push: false
+          build-args: |
+            GIT_COMMIT=${{ github.sha }}
+            APP_VERSION=0.0.0-ci
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,scope=api,mode=max
+      - name: Scan for vulnerabilities (fail on High and Critical)
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD/.trivyignore:/.trivyignore:ro" \
+            "$TRIVY_IMAGE" image --scanners vuln --severity HIGH,CRITICAL --ignorefile /.trivyignore \
+            --exit-code 1 --no-progress indent-easy/api:ci
+      - name: The image starts and answers its liveness probe
+        run: |
+          docker run -d --name api --read-only -p 8080:8080 \
+            -e PUBLIC_BASE_URL=http://localhost -e CORS_ALLOWED_ORIGINS=http://localhost \
+            -e DATABASE_URL=postgres://nobody@127.0.0.1:5432/none -e REDIS_URL=redis://127.0.0.1:6379 \
+            -e S3_BUCKET_DOCUMENTS=ci-documents -e S3_BUCKET_EXPORTS=ci-exports -e S3_BUCKET_IMPORTS=ci-imports -e S3_BUCKET_QUARANTINE=ci-quarantine \
+            -e SMTP_HOST=localhost -e MAIL_FROM=ci@example.invalid \
+            indent-easy/api:ci
+          for _ in $(seq 1 30); do curl -fs http://localhost:8080/health/live && exit 0; sleep 1; done
+          docker logs api
+          exit 1
+
   docs-deploy:
     name: Publish API docs
     needs: [checks, database]
