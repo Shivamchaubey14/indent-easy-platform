@@ -24,7 +24,9 @@
     "api:dev": "pnpm --filter @ie/api dev",
     "db:migrate": "pnpm --filter @ie/db build && node --env-file-if-exists=.env packages/db/scripts/migrate.mjs",
     "db:generate": "pnpm --filter @ie/db exec drizzle-kit generate",
-    "test:integration": "turbo run test:integration"
+    "test:integration": "turbo run test:integration",
+    "docs:build": "turbo run build --filter=@ie/docs",
+    "docs:dev": "pnpm --filter @ie/docs dev"
   },
   "devDependencies": {
     "@types/node": "^24.13.6",

@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import type { RequestHandler } from 'express';
 import type { Logger } from './logging.js';
 
 export type HealthCheck = () => Promise<unknown>;
@@ -72,17 +72,20 @@ export class Health {
   }
 }
 
-export function healthRouter(health: Health): Router {
-  const router = Router();
-  router.get('/health/live', (_req, res) => {
-    res.json({ status: 'ok' });
-  });
-  router.get('/health/startup', (_req, res) => {
-    res.status(health.isStarted ? 200 : 503).json({ status: health.isStarted ? 'ok' : 'fail' });
-  });
-  router.get('/health/ready', async (_req, res) => {
-    const report = await health.readiness();
-    res.status(report.status === 'ok' ? 200 : 503).json(report);
-  });
-  return router;
+/** Handlers for the liveness, startup and readiness probes (operationIds in docs/api/openapi.yaml). */
+export function healthHandlers(
+  health: Health,
+): Record<'liveness' | 'startup' | 'readiness', RequestHandler> {
+  return {
+    liveness: (_req, res) => {
+      res.json({ status: 'ok' });
+    },
+    startup: (_req, res) => {
+      res.status(health.isStarted ? 200 : 503).json({ status: health.isStarted ? 'ok' : 'fail' });
+    },
+    readiness: async (_req, res) => {
+      const report = await health.readiness();
+      res.status(report.status === 'ok' ? 200 : 503).json(report);
+    },
+  };
 }
