@@ -134,7 +134,7 @@ jobs:
           docker run -d --name api --read-only -p 8080:8080 \
             -e PUBLIC_BASE_URL=http://localhost -e CORS_ALLOWED_ORIGINS=http://localhost \
             -e DATABASE_URL=postgres://nobody@127.0.0.1:5432/none -e REDIS_URL=redis://127.0.0.1:6379 \
-            -e S3_BUCKET_DOCUMENTS=d -e S3_BUCKET_EXPORTS=e -e S3_BUCKET_IMPORTS=i -e S3_BUCKET_QUARANTINE=q \
+            -e S3_BUCKET_DOCUMENTS=ci-documents -e S3_BUCKET_EXPORTS=ci-exports -e S3_BUCKET_IMPORTS=ci-imports -e S3_BUCKET_QUARANTINE=ci-quarantine \
             -e SMTP_HOST=localhost -e MAIL_FROM=ci@example.invalid \
             indent-easy/api:ci
           for _ in $(seq 1 30); do curl -fs http://localhost:8080/health/live && exit 0; sleep 1; done
