@@ -67,15 +67,81 @@ powershell -File infrastructure\vm\vm.ps1 ssh DEV         # shell as ieadmin
 On a VM: `cloud-init status --long` shows provisioning, `docker ps` shows running containers,
 `/etc/indent-easy/environment` names the environment, and `/opt/indent-easy` holds the deployment.
 
-## Releasing (once the deployment pipeline exists)
+## Releasing
 
-1. Merge feature PRs into `dev`. CI builds the images once and DEV updates itself.
-2. When DEV is ready for testing, tag the tested commit `vX.Y.Z-rc.1`. QA receives the **same
-   image**. Test there, and fix issues on `dev` (`rc.2`, `rc.3`, …).
-3. After QA sign-off, open a PR `dev` → `main` and merge it, then tag `vX.Y.Z` on `main`. The
-   `production` environment asks for approval, and PROD receives the image that passed QA.
-4. Rollback: re-point PROD to the previous release tag. The deploy agent also reverts on its own
-   if the new version fails its health check.
+```text
+merge to dev ──CI green──► image sha-abc1234 ──► tag dev ──► DEV deploys it
+git tag v1.2.0-rc.1 (on a dev commit) ─────────► tag qa  ──► QA deploys the same image
+merge dev → main, git tag v1.2.0 + approval ──► tag prod ──► PROD deploys the image QA tested
+```
+
+1. **DEV:** merge feature PRs into `dev`. When every CI job passes, the image built from that commit
+   is pushed as `sha-<commit>`, and the `dev` tag moves to it. DEV deploys it within about two minutes.
+2. **QA:** tag the commit you want tested, which must already be on `dev`, and push the tag:
+   ```sh
+   git tag v1.2.0-rc.1 <commit> && git push origin v1.2.0-rc.1
+   ```
+   The *Release* workflow points `qa` at that commit's image; nothing is rebuilt. Fix problems on
+   `dev`, then tag `v1.2.0-rc.2`, and so on.
+3. **PROD:** after QA signs off, open a PR `dev` → `main` and merge it, then tag `main`:
+   ```sh
+   git tag v1.2.0 origin/main && git push origin v1.2.0
+   ```
+   The workflow waits for your approval (*Actions → the run → Review deployments*). It then
+   checks that `main` is identical to the last release candidate, and points `prod` at the image QA
+   tested. If `main` differs from what QA tested, it refuses.
+4. **Rollback:** open *Actions → Release*, find the run for the previous version (for example
+   `v1.1.0`) and choose *Re-run all jobs*. After approval, PROD goes back to that image. The agent
+   also rolls back by itself if a new version never becomes ready.
+
+GitHub environments enforce this: `dev` deploys only from the `dev` branch, `qa` only from
+`v*-rc.*` tags, and `production` only from `v*` tags and only with approval.
+
+**One-time step after the first image is published:** open
+*github.com/Shivamchaubey14 → Packages → indent-easy-api → Package settings* and set the visibility
+to **Public**. The VMs then pull without credentials. The image contains no secrets; the code is
+already public. To keep it private instead, run `docker login ghcr.io` on each VM with a
+read-only (`read:packages`) token.
+
+## How a VM deploys
+
+Each VM runs the stack in `/opt/indent-easy`, installed from the laptop:
+
+```sh
+bash infrastructure/deploy/install.sh DEV    # or QA / PROD; safe to re-run
+```
+
+The installer:
+- copies `compose.yaml`, the deploy agent (`deploy.sh`) and the systemd units
+- on first install, **generates the environment's secrets on the VM** (`/opt/indent-easy/.env`, mode
+  600). They never leave the machine; re-running the installer keeps them, and keeps the data
+- enables `indent-easy-deploy.timer`, which runs the agent every two minutes
+
+The agent pulls this environment's tag (`dev`, `qa` or `prod`). If it points at a new digest, it:
+1. runs the migrator
+2. starts the API
+3. waits for `/health/ready`
+4. **rolls back to the previous digest** if the new one never becomes ready. The failed digest is
+   remembered, so it isn't retried every two minutes; the next tag move clears it.
+
+| File on the VM | Meaning |
+|---|---|
+| `state/current` / `state/previous` | Digest running now / before the last deploy |
+| `state/last-deploy.json` | Last result: `deployed`, `rolled-back`, `failed` or `rollback-failed` |
+| `state/failed` + `state/failed-deploy.log` | Digest that failed, with container status, health checks and logs |
+
+```sh
+ssh -i ~/.ssh/indent_easy_vms ieadmin@192.168.50.11 journalctl -fu indent-easy-deploy   # follow DEV
+```
+
+Measured on DEV:
+- first deploy: 34 s
+- upgrade: 8 s, with **about 4 s of downtime** while the single API container is replaced
+- failed release rolled back: about 100 s
+- recovery after a VM reboot: about 100 s
+
+Two API replicas behind the NGINX web tier (arriving with the web app) will remove the upgrade
+downtime; until then, release to PROD outside working hours.
 
 ## Moving to the office server
 
@@ -89,6 +155,8 @@ copy the MinIO buckets with `mc mirror`.
 | Symptom | Cause and fix |
 |---|---|
 | `Not enough memory in the system to start the virtual machine` | Stop another VM or quit Docker Desktop, then start again |
+| Agent logs `cannot pull ... denied` | The image isn't published yet, or the GHCR package is still private (see the one-time step above) |
+| `last-deploy.json` says `rolled-back` | Read `state/failed-deploy.log` on the VM; fix, merge and let CI move the tag again |
 | VM running but SSH `down` for more than 5 minutes | Open the VM console in Hyper-V Manager and run `cloud-init status --long` |
 | VM has no internet | On the host: `Get-NetNat IE-Env-NAT`, and check that `vEthernet (IE-Env)` has 192.168.50.1 |
 | Secure Boot failure at first boot | The VM needs the `MicrosoftUEFICertificateAuthority` template (`create-vms.ps1` sets it) |
