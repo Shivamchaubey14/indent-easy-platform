@@ -4,7 +4,7 @@ Single source of truth for where the build stands. Update the checklist and the 
 end of every session. Roadmap phases come from SRS §62; timelines are not estimated there.
 
 **Current phase:** 0 — Foundation
-**Next task:** 0.8 worker + scheduler, or 0.9 web app (the user picks). PRs #1 → #9 are stacked; merge them in order. After #7 reaches `dev`, make the CI checks required (see 0.13). After the first image publish, make the GHCR package public (runbook `environments.md`).
+**Next task:** 0.9b ship the web app (NGINX image, two API replicas behind it, rolling deploy without downtime, CI and release for the web image, live test on DEV). Then 0.8 worker/scheduler. PRs #1 → #10 are stacked; merge them in order. After #7 reaches `dev`, make the CI checks required (see 0.13). After the first image publish, make the GHCR package public (runbook `environments.md`).
 
 **Repo:** https://github.com/Shivamchaubey14/indent-easy-platform (public). `main` and `dev` are protected. Branches are `feature/*` → PR → `dev`, and `dev` → PR → `main` at phase milestones. The owner merges PRs; they are not merged from the build session.
 
@@ -34,8 +34,9 @@ end of every session. Roadmap phases come from SRS §62; timelines are not estim
 - [x] 0.6 `apps/api` skeleton: Express 5 + GraphQL Yoga, `/health/{live,ready,startup}`, Pino, graceful shutdown, DB + Redis clients (PR #3)
 - [x] 0.7 Drizzle: `@ie/db` package, `0000_baseline` + `0001_app_role` migrations, `ie_app` role so RLS applies, readiness gated on migrations, 9 integration tests (PR #5). Runbook: `docs/runbooks/database.md`
 - [ ] 0.8 `apps/worker` + `apps/scheduler` skeletons — BullMQ, outbox relay stub, leader lock
-- [ ] 0.9 `apps/web` skeleton — Vite + React + TanStack Router/Query + Zustand (session/ui stores) + Tailwind + GSAP (`useGSAP`); login page shell; EN/HI i18n
-- [ ] 0.10 `packages/design-tokens` (incl. motion tokens shared by GSAP and Reanimated) + `packages/ui` v0 (SRS §40)
+- [x] 0.9 `apps/web` (PR #10): Vite 8 + React 19, TanStack Router (file-based) + Query, typed GraphQL (client-preset codegen), Zustand (ui persisted, session in memory), Tailwind 4 on the design tokens, GSAP entrance via `useEnter` (token ease, reduced motion respected), i18next EN/HI (defaults to the browser's language). Screens: app shell, dashboard with live API/DB status and feature flags, and a login screen (auth is Phase 1). First-load JS 131.6 KB gzip of a 250 KB budget.
+- [ ] 0.9b Ship the web app: NGINX image, two API replicas, rolling deploy, CI/release for the web image
+- [~] 0.10 `packages/design-tokens` done (PR #10): W3C tokens → CSS vars (light/dark/system, reduced motion) + a typed object for React Native; 14 WCAG contrast pairs tested. `packages/ui` (Radix primitives, Storybook) still to do; minimal primitives live in `apps/web/src/components/ui.tsx` for now.
 - [ ] 0.11 `apps/mobile` skeleton — Expo dev build, Expo Router, Zustand, Reanimated (decide `node-linker`)
 - [ ] 0.12 ESLint + boundaries rules, Vitest, Testcontainers smoke test
 - [x] 0.13 GitHub Actions CI (PR #7). Two jobs: `Format, types, unit tests, build` (plus OpenAPI lint and a docs artifact) and `Migrations, invariants, RLS` (real Postgres, drift gate, 8 invariant asserts, integration tests). Green on GitHub. **To do once #7 is in `dev`:** make both checks required on `dev` and `main`. Doing it earlier would block #1–#6, which never run CI.
@@ -112,3 +113,9 @@ end of every session. Roadmap phases come from SRS §62; timelines are not estim
 - Fixed during the test: the failure log now includes container status and health-check history (the broken image printed nothing); the installer's "next run" line used a systemd field monotonic timers don't set.
 - DEV now points at GHCR and logs "denied" every 2 minutes until the first publish (and until the package is made public). DEV is powered off to free memory, and Docker Desktop is stopped.
 - Installed native actionlint and shellcheck in `D:\devtools\bin` for when Docker is down.
+
+### 2026-09-25: web app
+- Verified in headless Edge against the real API through Vite's preview proxy: dashboard in English/light and Hindi/dark, and the login page. Findings fixed: (1) in Hindi even Latin text used Tiro's serif Latin; there's now a `hindi` font token, Inter first then Tiro, so each script gets the right face; (2) the "washed-out" login screenshot was the entrance fade caught mid-animation, and forcing reduced motion confirmed that path.
+- jsdom has no `matchMedia`; the test setup stubs it as reduced motion, which skips GSAP in tests.
+- New CI checks: `no-colour-literals.sh` (SRS §40.2) and `web-bundle-budget.mjs` (≤ 250 KB initial JS).
+- Port 4173 was reserved by Hyper-V (range 4141–4240, until reboot); the preview ran on 4710 instead.
