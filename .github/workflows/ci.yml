@@ -36,6 +36,10 @@ jobs:
         run: pnpm turbo run typecheck test build
       - name: OpenAPI contract lint
         run: pnpm contracts:lint
+      - name: No colour literals outside the design tokens
+        run: sh scripts/ci/no-colour-literals.sh
+      - name: Web first-load JavaScript within budget
+        run: node scripts/ci/web-bundle-budget.mjs
       - name: Upload documentation site
         uses: actions/upload-artifact@v4
         with:
