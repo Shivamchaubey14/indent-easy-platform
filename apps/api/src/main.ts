@@ -4,6 +4,7 @@ import { loadTypeDefs } from '@ie/graphql/schema';
 import { createApp } from './app.js';
 import { createGraphQLServer } from './graphql/server.js';
 import { postgresFeatureFlags } from './modules/configuration/index.js';
+import { migrationStatus } from '@ie/db';
 import { createPool, type Pool } from './shared/database.js';
 import { Health } from './shared/health.js';
 import { createLogger } from './shared/logging.js';
@@ -61,7 +62,11 @@ const health = new Health(
   {
     database: () => pool.query('SELECT 1'),
     redis: () => redis.ping(),
-    // Migration version check arrives with Drizzle migrations.
+    // Never serve traffic against a schema older than this build expects.
+    migrations: async () => {
+      const status = await migrationStatus(pool);
+      if (!status.upToDate) throw new Error(`pending migrations: ${status.pending.join(', ')}`);
+    },
   },
   logger,
 );
@@ -77,6 +82,18 @@ const graphql = createGraphQLServer({
 const app = createApp({ config, logger, metrics, health, graphql, buildInfo: info });
 const server = createServer(app);
 const metricsServer = startMetricsServer(metrics, config.http.metricsPort, logger);
+
+for (const [name, listener, port] of [
+  ['api', server, config.http.port],
+  ['metrics', metricsServer, config.http.metricsPort],
+] as const) {
+  listener.on('error', (err: NodeJS.ErrnoException) => {
+    // EACCES on Windows usually means Hyper-V/WinNAT has reserved the port
+    // (`netsh interface ipv4 show excludedportrange protocol=tcp`).
+    logger.fatal({ err, port }, `${name} server cannot listen on port ${port} (${err.code})`);
+    process.exit(1);
+  });
+}
 
 server.listen(config.http.port, () => {
   health.markStarted();
