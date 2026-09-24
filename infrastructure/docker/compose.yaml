@@ -18,6 +18,7 @@ services:
       # Applied once, on first start of an empty volume. `pnpm db:reset` wipes and re-applies.
       - ../../database/migrations:/docker-entrypoint-initdb.d:ro
       - ../../database/checks:/checks:ro
+      - ../../database/seeds:/seeds:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U ie -d indent_easy']
       interval: 5s
