@@ -1,0 +1,26 @@
+{
+  "name": "@ie/design-tokens",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Design tokens (SRS §40): CSS variables for the web, resolved values for React Native.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./tokens.css": "./dist/tokens.css"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "codegen": "node scripts/build.mjs",
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@ie/tsconfig": "workspace:*"
+  }
+}
