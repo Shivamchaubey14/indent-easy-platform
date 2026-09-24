@@ -1,0 +1,82 @@
+# Local development services for Indent Easy.
+# Run from the repo root:  pnpm infra:up   (or: docker compose -f infrastructure/docker/compose.yaml up -d)
+# Docker Desktop keeps its disk image on D:\Docker\wsl, so all volumes below live on D:.
+name: indent-easy
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: indent_easy
+      POSTGRES_USER: ie
+      POSTGRES_PASSWORD: ie_local_only
+      TZ: Asia/Kolkata
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Applied once, on first start of an empty volume. `pnpm db:reset` wipes and re-applies.
+      - ../../database/migrations:/docker-entrypoint-initdb.d:ro
+      - ../../database/checks:/checks:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ie -d indent_easy']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    command: ['redis-server', '--appendonly', 'yes']
+    ports:
+      # 6380 on the host: a legacy Windows Redis 3.2 service may hold 6379.
+      - '6380:6379'
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    image: quay.io/minio/minio:latest # Docker Hub image removed; community builds frozen Sep 2025
+    command: ['server', '/data', '--console-address', ':9001']
+    environment:
+      MINIO_ROOT_USER: ie_minio
+      MINIO_ROOT_PASSWORD: ie_minio_local_only
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    volumes:
+      - miniodata:/data
+
+  # Creates the four buckets named in SRS §55.2, then exits.
+  minio-init:
+    image: quay.io/minio/mc:latest
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 ie_minio ie_minio_local_only; do sleep 1; done;
+      for b in ie-documents ie-exports ie-imports ie-quarantine; do mc mb --ignore-existing local/$$b; done;
+      mc version enable local/ie-documents;
+      "
+
+  # Catches all outgoing e-mail locally. Web UI on http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - '1025:1025'
+      - '8025:8025'
+
+  # HTML -> PDF renderer used by the worker for GRN/STN/receipt PDFs.
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    ports:
+      - '3000:3000'
+    profiles: ['pdf']
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:
