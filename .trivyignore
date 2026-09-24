@@ -1,0 +1,3 @@
+# Vulnerability waivers for the image scan in CI (SRS §44.2: High findings need a time-boxed waiver).
+# One CVE per line, each with a comment giving the reason, the owner and an expiry date, e.g.:
+#   CVE-2026-00000  # not reachable: we never parse X.509 in-process. owner: IT & MIS. expires 2026-12-31
