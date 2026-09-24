@@ -127,3 +127,4 @@ end of every session. Roadmap phases come from SRS §62; timelines are not estim
 - Agent bug found before it bit: on the first deploy of the new layout the API digest was unchanged, so api-a/api-b would never have started. The agent now also rolls the API when a replica is missing.
 - Test mistake of mine: after the broken-API test I retagged only web, so the "web test" re-deployed the broken API (correctly rolled back). Reran properly: web-only release costs ~0.6 s.
 - DEV now follows GHCR for both images. Until #11 merges there is no `indent-easy-web:dev`, so the agent logs "cannot pull" and keeps the current release. DEV is powered off.
+- First CI run of #11 failed the web image scan: the full `nginx-unprivileged:1.29-alpine` had 38 High CVEs (curl, c-ares, OpenSSL, libxml2...). Switched to `alpine-slim` + `apk upgrade`: 0 High/Critical and 10 MB instead of 23. hadolint also rejects `USER root` (DL3066); use `USER 0`.
