@@ -1,0 +1,2316 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.indent-easy/events/v1.json",
+  "title": "Indent Easy domain event contracts (v1)",
+  "description": "Envelope + per-event payload schemas. Validate an event against this root schema; allOf/if-then binds payload to eventType.",
+  "$defs": {
+    "Envelope": {
+      "type": "object",
+      "required": [
+        "eventId",
+        "eventType",
+        "eventVersion",
+        "occurredAt",
+        "organizationId",
+        "aggregateType",
+        "aggregateId",
+        "aggregateVersion",
+        "actor",
+        "correlationId",
+        "payload"
+      ],
+      "properties": {
+        "eventId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "eventType": {
+          "type": "string",
+          "enum": [
+            "AdvanceSaleCancelled",
+            "AdvanceSaleCreated",
+            "ApprovalEscalated",
+            "ApprovalTaskActed",
+            "ApprovalTaskCreated",
+            "CycleActivated",
+            "DocumentAvailable",
+            "GeneralSaleCreated",
+            "GrnExcessDetected",
+            "GrnPosted",
+            "GrnReversed",
+            "ImportCompleted",
+            "IndentApproved",
+            "IndentApprovedForTransfer",
+            "IndentCancelled",
+            "IndentCreated",
+            "IndentLineStatusChanged",
+            "IndentRejected",
+            "IndentReturned",
+            "IndentSubmitted",
+            "InventoryAdjusted",
+            "InventoryUpdated",
+            "InvoiceExceptionRaised",
+            "InvoiceVerified",
+            "NotificationCreated",
+            "NotificationDeliveryUpdated",
+            "PodUploaded",
+            "PurchaseOrderApproved",
+            "PurchaseOrderCancelled",
+            "PurchaseOrderCreated",
+            "PurchaseOrderSendRequested",
+            "PurchaseOrderSent",
+            "ReconciliationCompleted",
+            "ReconciliationPublished",
+            "StnCreated",
+            "StnDispatched",
+            "StnReceived",
+            "StockBelowReorderLevel",
+            "TransferOrderCreated",
+            "TransitDiscrepancyOpened",
+            "TransitDiscrepancyResolved",
+            "UserRoleChanged"
+          ]
+        },
+        "eventVersion": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "occurredAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "organizationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "aggregateType": {
+          "type": "string"
+        },
+        "aggregateId": {
+          "type": "string"
+        },
+        "aggregateVersion": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "actor": {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "enum": [
+                "USER",
+                "SYSTEM",
+                "INTEGRATION"
+              ]
+            },
+            "id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "onBehalfOfId": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "additionalProperties": true
+        },
+        "correlationId": {
+          "type": "string"
+        },
+        "causationId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "requestId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "traceId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "channel": {
+          "enum": [
+            "WEB",
+            "MOBILE",
+            "MOBILE_OFFLINE",
+            "API",
+            "SYSTEM",
+            "IMPORT"
+          ]
+        },
+        "payload": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Decimal": {
+      "type": "string",
+      "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+    },
+    "Money": {
+      "type": "object",
+      "required": [
+        "amount",
+        "currency"
+      ],
+      "properties": {
+        "amount": {
+          "type": "string",
+          "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+        },
+        "currency": {
+          "type": "string",
+          "const": "INR"
+        }
+      },
+      "additionalProperties": false
+    },
+    "IndentCreatedPayload": {
+      "type": "object",
+      "required": [
+        "locationId",
+        "lineCount"
+      ],
+      "properties": {
+        "locationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "lineCount": {
+          "type": "integer"
+        },
+        "estimatedTotal": {
+          "type": "object",
+          "required": [
+            "amount",
+            "currency"
+          ],
+          "properties": {
+            "amount": {
+              "type": "string",
+              "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+            },
+            "currency": {
+              "type": "string",
+              "const": "INR"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": true
+    },
+    "IndentSubmittedPayload": {
+      "type": "object",
+      "required": [
+        "indentNumber",
+        "locationId",
+        "lines",
+        "workflowInstanceId"
+      ],
+      "properties": {
+        "indentNumber": {
+          "type": "string"
+        },
+        "locationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "departmentId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "priority": {
+          "enum": [
+            "LOW",
+            "NORMAL",
+            "HIGH",
+            "URGENT"
+          ]
+        },
+        "estimatedTotal": {
+          "type": "object",
+          "required": [
+            "amount",
+            "currency"
+          ],
+          "properties": {
+            "amount": {
+              "type": "string",
+              "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+            },
+            "currency": {
+              "type": "string",
+              "const": "INR"
+            }
+          },
+          "additionalProperties": false
+        },
+        "workflowInstanceId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "lines": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "lineId",
+              "productId",
+              "quantityBase"
+            ],
+            "properties": {
+              "lineId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "productId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "quantityBase": {
+                "type": "string",
+                "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+              },
+              "uomCode": {
+                "type": "string"
+              },
+              "estimatedAmount": {
+                "type": "object",
+                "required": [
+                  "amount",
+                  "currency"
+                ],
+                "properties": {
+                  "amount": {
+                    "type": "string",
+                    "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                  },
+                  "currency": {
+                    "type": "string",
+                    "const": "INR"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "IndentReturnedPayload": {
+      "type": "object",
+      "required": [
+        "taskId",
+        "remark"
+      ],
+      "properties": {
+        "taskId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "remark": {
+          "type": "string"
+        },
+        "returnedBy": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "additionalProperties": true
+    },
+    "IndentApprovedPayload": {
+      "type": "object",
+      "required": [
+        "lineIds",
+        "approverId"
+      ],
+      "properties": {
+        "lineIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "approvedQuantityByLine": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+          }
+        },
+        "approverId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "onBehalfOfId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "IndentApprovedForTransferPayload": {
+      "type": "object",
+      "required": [
+        "lineIds",
+        "transferOrderIds"
+      ],
+      "properties": {
+        "lineIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "transferOrderIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "IndentRejectedPayload": {
+      "type": "object",
+      "required": [
+        "lineIds",
+        "reason"
+      ],
+      "properties": {
+        "lineIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "IndentCancelledPayload": {
+      "type": "object",
+      "required": [
+        "lineIds",
+        "reason"
+      ],
+      "properties": {
+        "lineIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "IndentLineStatusChangedPayload": {
+      "type": "object",
+      "required": [
+        "lineId",
+        "from",
+        "to"
+      ],
+      "properties": {
+        "lineId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "from": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "ApprovalTaskCreatedPayload": {
+      "type": "object",
+      "required": [
+        "taskId",
+        "subjectType",
+        "subjectId"
+      ],
+      "properties": {
+        "taskId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "subjectType": {
+          "type": "string"
+        },
+        "subjectId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "assigneeUserId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "assigneeRoleId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "dueAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": true
+    },
+    "ApprovalTaskActedPayload": {
+      "type": "object",
+      "required": [
+        "taskId",
+        "action",
+        "actorId"
+      ],
+      "properties": {
+        "taskId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "action": {
+          "enum": [
+            "APPROVE",
+            "APPROVE_FOR_TRANSFER",
+            "REJECT",
+            "RETURN"
+          ]
+        },
+        "actorId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "remark": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "ApprovalEscalatedPayload": {
+      "type": "object",
+      "required": [
+        "taskId",
+        "toAssignee"
+      ],
+      "properties": {
+        "taskId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "fromAssignee": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "toAssignee": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "PurchaseOrderCreatedPayload": {
+      "type": "object",
+      "required": [
+        "poNumber",
+        "vendorId",
+        "lines",
+        "grandTotal"
+      ],
+      "properties": {
+        "poNumber": {
+          "type": "string"
+        },
+        "externalPoNumber": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "vendorId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "grandTotal": {
+          "type": "object",
+          "required": [
+            "amount",
+            "currency"
+          ],
+          "properties": {
+            "amount": {
+              "type": "string",
+              "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+            },
+            "currency": {
+              "type": "string",
+              "const": "INR"
+            }
+          },
+          "additionalProperties": false
+        },
+        "lines": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "poLineId",
+              "productId",
+              "quantityBase"
+            ],
+            "properties": {
+              "poLineId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "productId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "quantityBase": {
+                "type": "string",
+                "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+              },
+              "unitPrice": {
+                "type": "object",
+                "required": [
+                  "amount",
+                  "currency"
+                ],
+                "properties": {
+                  "amount": {
+                    "type": "string",
+                    "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                  },
+                  "currency": {
+                    "type": "string",
+                    "const": "INR"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "allocations": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "indentLineId",
+                    "quantityBase"
+                  ],
+                  "properties": {
+                    "indentLineId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "quantityBase": {
+                      "type": "string",
+                      "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "PurchaseOrderApprovedPayload": {
+      "type": "object",
+      "required": [
+        "approverId"
+      ],
+      "properties": {
+        "approverId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "additionalProperties": true
+    },
+    "PurchaseOrderSendRequestedPayload": {
+      "type": "object",
+      "required": [
+        "recipientContactIds"
+      ],
+      "properties": {
+        "recipientContactIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "templateDocumentId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "PurchaseOrderSentPayload": {
+      "type": "object",
+      "required": [
+        "sentAt"
+      ],
+      "properties": {
+        "sentAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "deliveryIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "PurchaseOrderCancelledPayload": {
+      "type": "object",
+      "required": [
+        "reason"
+      ],
+      "properties": {
+        "lineIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "GrnExcessDetectedPayload": {
+      "type": "object",
+      "required": [
+        "lines"
+      ],
+      "properties": {
+        "lines": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "grnLineId",
+              "excessQuantity"
+            ],
+            "properties": {
+              "grnLineId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "excessQuantity": {
+                "type": "string",
+                "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "GrnPostedPayload": {
+      "type": "object",
+      "required": [
+        "grnNumber",
+        "warehouseId",
+        "lines"
+      ],
+      "properties": {
+        "grnNumber": {
+          "type": "string"
+        },
+        "purchaseOrderId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "vendorId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "warehouseId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "challanNumber": {
+          "type": "string"
+        },
+        "lines": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "grnLineId",
+              "productId",
+              "received",
+              "accepted",
+              "rejected"
+            ],
+            "properties": {
+              "grnLineId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "poLineId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "productId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "received": {
+                "type": "string",
+                "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+              },
+              "accepted": {
+                "type": "string",
+                "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+              },
+              "rejected": {
+                "type": "string",
+                "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "GrnReversedPayload": {
+      "type": "object",
+      "required": [
+        "lines",
+        "reason"
+      ],
+      "properties": {
+        "lines": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "grnLineId",
+              "quantity"
+            ],
+            "properties": {
+              "grnLineId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "quantity": {
+                "type": "string",
+                "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "InventoryUpdatedPayload": {
+      "type": "object",
+      "required": [
+        "transactionId",
+        "warehouseId",
+        "productId",
+        "movementType",
+        "quantityDelta",
+        "quantityAfter",
+        "sourceType"
+      ],
+      "properties": {
+        "transactionId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "warehouseId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "locationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "productId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "batchId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "movementType": {
+          "enum": [
+            "OPENING",
+            "GRN_RECEIPT",
+            "GRN_REVERSAL",
+            "RETURN_TO_VENDOR",
+            "TRANSFER_OUT",
+            "TRANSIT_IN",
+            "TRANSIT_OUT",
+            "TRANSFER_IN",
+            "TRANSIT_WRITE_OFF",
+            "ISSUE_ADVANCE_SALE",
+            "ISSUE_GENERAL_SALE",
+            "ISSUE_OTHER_SALE",
+            "SALE_REVERSAL",
+            "RETURN_FROM_MPP",
+            "ISSUE_INTERNAL",
+            "ADJUSTMENT_IN",
+            "ADJUSTMENT_OUT",
+            "DAMAGE",
+            "EXPIRY",
+            "DISPOSAL",
+            "CORRECTION"
+          ]
+        },
+        "quantityDelta": {
+          "type": "string",
+          "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+        },
+        "quantityAfter": {
+          "type": "string",
+          "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+        },
+        "sourceType": {
+          "type": "string"
+        },
+        "sourceId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "sourceNumber": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "InventoryAdjustedPayload": {
+      "type": "object",
+      "required": [
+        "warehouseId",
+        "lines"
+      ],
+      "properties": {
+        "warehouseId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "lines": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "productId",
+              "quantityDelta"
+            ],
+            "properties": {
+              "productId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "quantityDelta": {
+                "type": "string",
+                "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "StockBelowReorderLevelPayload": {
+      "type": "object",
+      "required": [
+        "warehouseId",
+        "productId",
+        "available",
+        "reorderLevel"
+      ],
+      "properties": {
+        "warehouseId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "productId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "available": {
+          "type": "string",
+          "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+        },
+        "reorderLevel": {
+          "type": "string",
+          "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+        }
+      },
+      "additionalProperties": true
+    },
+    "TransferOrderCreatedPayload": {
+      "type": "object",
+      "required": [
+        "sourceLocationId",
+        "destinationLocationId",
+        "lines"
+      ],
+      "properties": {
+        "sourceLocationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "destinationLocationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "lines": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "productId",
+              "quantityBase"
+            ],
+            "properties": {
+              "productId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "quantityBase": {
+                "type": "string",
+                "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+              },
+              "indentLineId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "StnCreatedPayload": {
+      "type": "object",
+      "required": [
+        "stnNumber",
+        "sourceWarehouseId",
+        "destinationWarehouseId"
+      ],
+      "properties": {
+        "stnNumber": {
+          "type": "string"
+        },
+        "sourceWarehouseId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "destinationWarehouseId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "vehicleNumber": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "StnDispatchedPayload": {
+      "type": "object",
+      "required": [
+        "lines"
+      ],
+      "properties": {
+        "lines": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "stnLineId",
+              "quantity"
+            ],
+            "properties": {
+              "stnLineId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "quantity": {
+                "type": "string",
+                "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "StnReceivedPayload": {
+      "type": "object",
+      "required": [
+        "receiptId",
+        "lines"
+      ],
+      "properties": {
+        "receiptId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "lines": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "stnLineId",
+              "accepted",
+              "rejected"
+            ],
+            "properties": {
+              "stnLineId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "accepted": {
+                "type": "string",
+                "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+              },
+              "rejected": {
+                "type": "string",
+                "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "TransitDiscrepancyOpenedPayload": {
+      "type": "object",
+      "required": [
+        "discrepancyId",
+        "quantity",
+        "type"
+      ],
+      "properties": {
+        "discrepancyId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "stnLineId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "quantity": {
+          "type": "string",
+          "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+        },
+        "type": {
+          "enum": [
+            "SHORT",
+            "DAMAGED",
+            "EXCESS"
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "TransitDiscrepancyResolvedPayload": {
+      "type": "object",
+      "required": [
+        "discrepancyId",
+        "resolution"
+      ],
+      "properties": {
+        "discrepancyId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "resolution": {
+          "enum": [
+            "RETURN_TO_SOURCE",
+            "WRITE_OFF",
+            "LATE_RECEIPT"
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "AdvanceSaleCreatedPayload": {
+      "type": "object",
+      "required": [
+        "saleNumber",
+        "saleCode",
+        "locationId",
+        "mppId",
+        "cycleId",
+        "saleDate",
+        "lines"
+      ],
+      "properties": {
+        "saleNumber": {
+          "type": "string"
+        },
+        "saleCode": {
+          "type": "string",
+          "pattern": "^[0-9]{10}$"
+        },
+        "locationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "mppId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "cycleId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "saleDate": {
+          "type": "string",
+          "format": "date"
+        },
+        "clientCreatedAt": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "lines": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "productId",
+              "quantityBase"
+            ],
+            "properties": {
+              "productId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "quantityBase": {
+                "type": "string",
+                "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "AdvanceSaleCancelledPayload": {
+      "type": "object",
+      "required": [
+        "reason"
+      ],
+      "properties": {
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "PodUploadedPayload": {
+      "type": "object",
+      "required": [
+        "subjectType",
+        "subjectId",
+        "podId",
+        "documentId"
+      ],
+      "properties": {
+        "subjectType": {
+          "enum": [
+            "ADVANCE_SALE",
+            "GENERAL_SALE",
+            "STN"
+          ]
+        },
+        "subjectId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "podId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "documentId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "additionalProperties": true
+    },
+    "GeneralSaleCreatedPayload": {
+      "type": "object",
+      "required": [
+        "mppId",
+        "lines"
+      ],
+      "properties": {
+        "mppId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "origin": {
+          "enum": [
+            "RECONCILIATION",
+            "MANUAL"
+          ]
+        },
+        "lines": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "productId",
+              "quantityBase"
+            ],
+            "properties": {
+              "productId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "quantityBase": {
+                "type": "string",
+                "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "CycleActivatedPayload": {
+      "type": "object",
+      "required": [
+        "cycleId"
+      ],
+      "properties": {
+        "cycleId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "previousCycleId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "ReconciliationCompletedPayload": {
+      "type": "object",
+      "required": [
+        "cycleId",
+        "versionNo",
+        "counts"
+      ],
+      "properties": {
+        "cycleId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "versionNo": {
+          "type": "integer"
+        },
+        "counts": {
+          "type": "object",
+          "required": [
+            "total"
+          ],
+          "properties": {
+            "total": {
+              "type": "integer"
+            },
+            "perfectMatch": {
+              "type": "integer"
+            },
+            "underRecorded": {
+              "type": "integer"
+            },
+            "overRecorded": {
+              "type": "integer"
+            },
+            "notRecorded": {
+              "type": "integer"
+            },
+            "exceptions": {
+              "type": "integer"
+            }
+          },
+          "additionalProperties": true
+        },
+        "generalSalesCreated": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true
+    },
+    "ReconciliationPublishedPayload": {
+      "type": "object",
+      "required": [
+        "cycleId",
+        "locationIds"
+      ],
+      "properties": {
+        "cycleId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "locationIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "InvoiceVerifiedPayload": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "purchaseOrderId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "InvoiceExceptionRaisedPayload": {
+      "type": "object",
+      "required": [
+        "lineIds",
+        "matchStatuses"
+      ],
+      "properties": {
+        "lineIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "matchStatuses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "NotificationCreatedPayload": {
+      "type": "object",
+      "required": [
+        "notificationId",
+        "channels"
+      ],
+      "properties": {
+        "notificationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "channels": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "IN_APP",
+              "PUSH",
+              "EMAIL",
+              "SMS"
+            ]
+          }
+        },
+        "recipientRefs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "NotificationDeliveryUpdatedPayload": {
+      "type": "object",
+      "required": [
+        "deliveryId",
+        "status"
+      ],
+      "properties": {
+        "deliveryId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "status": {
+          "enum": [
+            "QUEUED",
+            "SENDING",
+            "RETRY_SCHEDULED",
+            "SENT",
+            "DELIVERED",
+            "READ",
+            "FAILED",
+            "NOT_REGISTERED"
+          ]
+        },
+        "providerMessageId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "DocumentAvailablePayload": {
+      "type": "object",
+      "required": [
+        "documentId",
+        "versionNo"
+      ],
+      "properties": {
+        "documentId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "versionNo": {
+          "type": "integer"
+        },
+        "entityRefs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "entityType",
+              "entityId"
+            ],
+            "properties": {
+              "entityType": {
+                "type": "string"
+              },
+              "entityId": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "ImportCompletedPayload": {
+      "type": "object",
+      "required": [
+        "batchId",
+        "kind",
+        "status"
+      ],
+      "properties": {
+        "batchId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "succeededRows": {
+          "type": "integer"
+        },
+        "failedRows": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true
+    },
+    "UserRoleChangedPayload": {
+      "type": "object",
+      "required": [
+        "userId",
+        "rolesVersion"
+      ],
+      "properties": {
+        "userId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "rolesVersion": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "#/$defs/Envelope"
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "IndentCreated"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/IndentCreatedPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "IndentSubmitted"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/IndentSubmittedPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "IndentReturned"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/IndentReturnedPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "IndentApproved"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/IndentApprovedPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "IndentApprovedForTransfer"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/IndentApprovedForTransferPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "IndentRejected"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/IndentRejectedPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "IndentCancelled"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/IndentCancelledPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "IndentLineStatusChanged"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/IndentLineStatusChangedPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "ApprovalTaskCreated"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/ApprovalTaskCreatedPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "ApprovalTaskActed"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/ApprovalTaskActedPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "ApprovalEscalated"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/ApprovalEscalatedPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "PurchaseOrderCreated"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/PurchaseOrderCreatedPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "PurchaseOrderApproved"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/PurchaseOrderApprovedPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "PurchaseOrderSendRequested"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/PurchaseOrderSendRequestedPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "PurchaseOrderSent"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/PurchaseOrderSentPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "PurchaseOrderCancelled"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/PurchaseOrderCancelledPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "GrnExcessDetected"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/GrnExcessDetectedPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "GrnPosted"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/GrnPostedPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "GrnReversed"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/GrnReversedPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "InventoryUpdated"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/InventoryUpdatedPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "InventoryAdjusted"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/InventoryAdjustedPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "StockBelowReorderLevel"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/StockBelowReorderLevelPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "TransferOrderCreated"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/TransferOrderCreatedPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "StnCreated"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/StnCreatedPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "StnDispatched"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/StnDispatchedPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "StnReceived"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/StnReceivedPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "TransitDiscrepancyOpened"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/TransitDiscrepancyOpenedPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "TransitDiscrepancyResolved"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/TransitDiscrepancyResolvedPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "AdvanceSaleCreated"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/AdvanceSaleCreatedPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "AdvanceSaleCancelled"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/AdvanceSaleCancelledPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "PodUploaded"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/PodUploadedPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "GeneralSaleCreated"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/GeneralSaleCreatedPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "CycleActivated"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/CycleActivatedPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "ReconciliationCompleted"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/ReconciliationCompletedPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "ReconciliationPublished"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/ReconciliationPublishedPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "InvoiceVerified"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/InvoiceVerifiedPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "InvoiceExceptionRaised"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/InvoiceExceptionRaisedPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "NotificationCreated"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/NotificationCreatedPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "NotificationDeliveryUpdated"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/NotificationDeliveryUpdatedPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "DocumentAvailable"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/DocumentAvailablePayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "ImportCompleted"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/ImportCompletedPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "UserRoleChanged"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/UserRoleChangedPayload"
+          }
+        }
+      }
+    }
+  ]
+}

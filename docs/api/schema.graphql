@@ -1,0 +1,3873 @@
+"""
+Indent Easy — GraphQL API contract (initial, v1.2 — WhatsApp removed per DEC-001; live-confirmed Sale & Stock Report, STN post, stock condition, sale to other, SAP order generator).
+Source of truth for server resolver types and client operations (GraphQL Code Generator).
+Conventions: Relay connections, input objects, payload types with userErrors,
+opaque global IDs, Decimal as string, DateTime RFC 3339 UTC, Date ISO-8601 (business TZ Asia/Kolkata).
+Authorization: @auth documents the required permission; enforcement happens in application policies.
+"""
+schema {
+  query: Query
+  mutation: Mutation
+  subscription: Subscription
+}
+
+# ---------------------------------------------------------------------------
+# Directives
+# ---------------------------------------------------------------------------
+
+"Required permission code (resource:action). Enforced server-side by policies; documented here for clients and codegen."
+directive @auth(requires: String!) on FIELD_DEFINITION | OBJECT
+
+"Field contains personal or sensitive data; masked unless caller holds the matching *:read_sensitive permission."
+directive @sensitive on FIELD_DEFINITION
+
+"Mutation requires an idempotency key (Idempotency-Key header or input.idempotencyKey)."
+directive @idempotent on FIELD_DEFINITION
+
+"Query cost hint for the complexity limiter."
+directive @cost(weight: Int!, multipliers: [String!]) on FIELD_DEFINITION
+
+# ---------------------------------------------------------------------------
+# Scalars
+# ---------------------------------------------------------------------------
+
+"Arbitrary-precision decimal serialised as a string, e.g. \"1250.50\"."
+scalar Decimal
+"RFC 3339 timestamp in UTC, e.g. 2026-09-24T05:30:00Z."
+scalar DateTime
+"ISO-8601 calendar date, e.g. 2026-09-24 (business time zone Asia/Kolkata)."
+scalar Date
+"E.164 phone number, e.g. +919876543210."
+scalar PhoneNumber
+"RFC 5322 e-mail address."
+scalar EmailAddress
+"JSON value (used only for configuration payloads)."
+scalar JSON
+"ISO 4217 currency code."
+scalar CurrencyCode
+"Client-generated UUID used for idempotency and offline correlation."
+scalar UUID
+
+# ---------------------------------------------------------------------------
+# Core interfaces & shared types
+# ---------------------------------------------------------------------------
+
+interface Node {
+  "Opaque global ID."
+  id: ID!
+}
+
+interface Auditable {
+  createdAt: DateTime!
+  createdBy: UserRef
+  updatedAt: DateTime
+  updatedBy: UserRef
+  version: Int!
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+}
+
+input PaginationInput {
+  "Max 100, default 20."
+  first: Int
+  after: String
+  last: Int
+  before: String
+}
+
+enum SortDirection {
+  ASC
+  DESC
+}
+
+input DateRangeInput {
+  from: Date
+  to: Date
+}
+
+input DateTimeRangeInput {
+  from: DateTime
+  to: DateTime
+}
+
+type Money {
+  amount: Decimal!
+  currency: CurrencyCode!
+}
+
+type Quantity {
+  value: Decimal!
+  uom: Uom!
+}
+
+"Expected business/validation error returned in mutation payloads."
+type UserError {
+  "Stable machine-readable code, e.g. INVENTORY_INSUFFICIENT."
+  code: ErrorCode!
+  message: String!
+  "Path to the offending input field, e.g. [\"input\",\"lines\",\"2\",\"quantity\"]."
+  field: [String!]
+  details: JSON
+}
+
+enum ErrorCode {
+  VALIDATION_FAILED
+  NOT_FOUND
+  FORBIDDEN
+  CONFLICT
+  INVALID_STATE_TRANSITION
+  VERSION_CONFLICT
+  IDEMPOTENCY_KEY_REUSED
+  RATE_LIMITED
+  AUTH_INVALID_CREDENTIALS
+  AUTH_ACCOUNT_LOCKED
+  AUTH_ACCOUNT_DISABLED
+  AUTH_TOKEN_EXPIRED
+  AUTH_MFA_REQUIRED
+  INDENT_ALREADY_SUBMITTED
+  INDENT_DUPLICATE_LINE
+  APPROVER_NOT_RESOLVED
+  WORKFLOW_NOT_CONFIGURED
+  APPROVAL_ALREADY_ACTED
+  APPROVAL_NOT_ASSIGNED
+  TRANSFER_SOURCE_INVALID
+  PO_QUANTITY_EXCEEDS_APPROVED
+  PO_DUPLICATE_EXTERNAL_NUMBER
+  PO_NOT_OPEN
+  SAP_PO_PRODUCT_MISMATCH
+  GRN_OVER_TOLERANCE
+  GRN_DOCUMENT_REQUIRED
+  GRN_DUPLICATE_CHALLAN
+  GRN_REVERSAL_EXCEEDS_STOCK
+  INVENTORY_INSUFFICIENT
+  STN_NOT_DISPATCHED
+  STN_RECEIPT_EXCEEDS_DISPATCH
+  PRODUCT_NOT_FOUND
+  PRODUCT_INACTIVE
+  CYCLE_NOT_ACTIVE
+  CYCLE_CLOSED
+  CYCLE_OVERLAP
+  CYCLE_OUT_OF_MONTH
+  CYCLE_NOT_OPEN
+  MONTH_LOCKED
+  STATEMENT_FINALIZED
+  FILE_CYCLE_MISMATCH
+  COLUMN_NOT_OPEN
+  POD_VERIFICATION_FAILED
+  POD_ALREADY_UPLOADED
+  RECONCILIATION_COLUMNS_MISSING
+  RECONCILIATION_DUPLICATE_FILE
+  INVOICE_DUPLICATE
+  DOCUMENT_TOO_LARGE
+  DOCUMENT_TYPE_NOT_ALLOWED
+  DOCUMENT_NOT_AVAILABLE
+  EXTERNAL_SERVICE_UNAVAILABLE
+  INTERNAL_ERROR
+}
+
+"Lightweight user reference for display."
+type UserRef {
+  id: ID!
+  displayName: String!
+  employeeCode: String
+}
+
+type AuditEntry implements Node {
+  id: ID!
+  occurredAt: DateTime!
+  actor: UserRef
+  onBehalfOf: UserRef
+  action: String!
+  entityType: String!
+  entityId: ID!
+  entityNumber: String
+  before: JSON
+  after: JSON
+  requestId: String
+  channel: Channel
+  ip: String @sensitive
+}
+
+enum Channel {
+  WEB
+  MOBILE
+  MOBILE_OFFLINE
+  API
+  SYSTEM
+  IMPORT
+}
+
+type AuditEntryEdge {
+  cursor: String!
+  node: AuditEntry!
+}
+
+type AuditEntryConnection {
+  edges: [AuditEntryEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int
+}
+
+input AuditFilter {
+  entityType: String
+  entityId: ID
+  actorId: ID
+  action: String
+  requestId: String
+  occurredAt: DateTimeRangeInput
+}
+
+"Timeline item used on document detail screens."
+type TimelineEvent {
+  occurredAt: DateTime!
+  type: String!
+  title: String!
+  description: String
+  actor: UserRef
+  link: String
+}
+
+# ---------------------------------------------------------------------------
+# Identity & organisation
+# ---------------------------------------------------------------------------
+
+enum UserStatus {
+  INVITED
+  ACTIVE
+  LOCKED
+  DISABLED
+}
+
+enum Locale {
+  EN
+  HI
+}
+
+type User implements Node & Auditable {
+  id: ID!
+  email: EmailAddress!
+  mobile: PhoneNumber @sensitive
+  displayName: String!
+  employeeCode: String
+  designation: Designation
+  department: Department
+  primaryLocation: Location
+  locations: [Location!]!
+  deliveryPointCode: String
+  preferredLocale: Locale!
+  status: UserStatus!
+  roles: [UserRoleAssignment!]!
+  permissions: [String!]!
+  reportsTo: UserRef
+  mfaEnabled: Boolean!
+  lastLoginAt: DateTime
+  homeWorkspace: Workspace!
+  createdAt: DateTime!
+  createdBy: UserRef
+  updatedAt: DateTime
+  updatedBy: UserRef
+  version: Int!
+}
+
+enum Workspace {
+  STORE
+  HOD
+  PURCHASE
+  FINANCE
+  LOGISTICS
+  ADMIN
+  MANAGEMENT
+}
+
+type Role implements Node {
+  id: ID!
+  code: String!
+  name: String!
+  description: String
+  isSystem: Boolean!
+  permissions: [String!]!
+  userCount: Int!
+}
+
+type UserRoleAssignment {
+  role: Role!
+  scopeLocations: [Location!]!
+  scopeDepartments: [Department!]!
+  scopeCategories: [ProductCategory!]!
+  validFrom: Date
+  validTo: Date
+}
+
+type Session implements Node {
+  id: ID!
+  deviceName: String
+  platform: String
+  ip: String @sensitive
+  createdAt: DateTime!
+  lastSeenAt: DateTime!
+  current: Boolean!
+}
+
+enum LocationType {
+  HEAD_OFFICE
+  BMC
+  MCC
+  PLANT
+  WAREHOUSE
+  OTHER
+}
+
+type Location implements Node {
+  id: ID!
+  code: String!
+  name: String!
+  nameHi: String
+  type: LocationType!
+  sapPlantCode: String
+  address: String
+  warehouses: [Warehouse!]!
+  excludedFromCrossView: Boolean!
+  active: Boolean!
+}
+
+enum WarehouseType {
+  STORE
+  IN_TRANSIT
+  QUARANTINE
+  DAMAGED
+  EXPIRED
+}
+
+type Warehouse implements Node {
+  id: ID!
+  code: String!
+  name: String!
+  type: WarehouseType!
+  location: Location
+}
+
+type Department implements Node {
+  id: ID!
+  code: String!
+  name: String!
+}
+
+type Designation implements Node {
+  id: ID!
+  code: String!
+  name: String!
+}
+
+type UserEdge {
+  cursor: String!
+  node: User!
+}
+
+type UserConnection {
+  edges: [UserEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int
+}
+
+input UserFilter {
+  search: String
+  status: [UserStatus!]
+  roleCodes: [String!]
+  locationIds: [ID!]
+  departmentIds: [ID!]
+}
+
+# ---------------------------------------------------------------------------
+# Catalogue
+# ---------------------------------------------------------------------------
+
+type Uom implements Node {
+  id: ID!
+  code: String!
+  name: String!
+  nameHi: String
+  decimalsAllowed: Int!
+}
+
+type ProductCategory implements Node {
+  id: ID!
+  code: String!
+  name: String!
+  parent: ProductCategory
+  requiresInspection: Boolean!
+}
+
+enum ProductStatus {
+  ACTIVE
+  INACTIVE
+}
+
+type ExternalProductCode {
+  system: String!
+  code: String
+  name: String!
+  isPrimary: Boolean!
+}
+
+type Product implements Node & Auditable {
+  id: ID!
+  code: String!
+  name: String!
+  nameHi: String
+  "Display name per caller's configured system preference (e.g. NDDB → SAP → internal)."
+  displayName: String!
+  sizeLabel: String
+  baseUom: Uom!
+  category: ProductCategory
+  materialType: String
+  hsnCode: String
+  standardPrice: Money
+  isStockItem: Boolean!
+  isService: Boolean!
+  batchTracked: Boolean!
+  serialTracked: Boolean!
+  reorderLevel: Decimal
+  owner: UserRef
+  externalCodes: [ExternalProductCode!]!
+  vendors: [VendorProduct!]!
+  status: ProductStatus!
+  "Available stock at a warehouse/location the caller can see."
+  stock(locationId: ID): [StockBalance!]! @auth(requires: "inventory:read")
+  createdAt: DateTime!
+  createdBy: UserRef
+  updatedAt: DateTime
+  updatedBy: UserRef
+  version: Int!
+}
+
+type ProductEdge {
+  cursor: String!
+  node: Product!
+}
+
+type ProductConnection {
+  edges: [ProductEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int
+}
+
+input ProductFilter {
+  search: String
+  categoryIds: [ID!]
+  status: [ProductStatus!]
+  isService: Boolean
+  vendorId: ID
+  externalSystem: String
+  externalCode: String
+}
+
+enum ProductSortField {
+  NAME
+  CODE
+  UPDATED_AT
+}
+
+input ProductSort {
+  field: ProductSortField!
+  direction: SortDirection!
+}
+
+enum VendorStatus {
+  ACTIVE
+  INACTIVE
+  BLOCKED
+}
+
+type VendorContact {
+  id: ID!
+  name: String
+  email: EmailAddress
+  phone: PhoneNumber @sensitive
+  purposes: [String!]!
+}
+
+type Vendor implements Node & Auditable {
+  id: ID!
+  code: String!
+  name: String!
+  legalName: String
+  gstin: String
+  pan: String @sensitive
+  sapVendorCode: String
+  paymentTermsDays: Int
+  address: String
+  contacts: [VendorContact!]!
+  products: [VendorProduct!]!
+  performance(period: DateRangeInput): VendorPerformance
+  status: VendorStatus!
+  createdAt: DateTime!
+  createdBy: UserRef
+  updatedAt: DateTime
+  updatedBy: UserRef
+  version: Int!
+}
+
+type VendorProduct {
+  vendor: Vendor!
+  product: Product!
+  priority: Int!
+  isPrimary: Boolean!
+  lastPrice: Money
+  leadTimeDays: Int
+}
+
+type VendorPerformance {
+  onTimeDeliveryPct: Decimal
+  quantityAccuracyPct: Decimal
+  rejectionPct: Decimal
+  avgLeadTimeDays: Decimal
+  poCount: Int!
+}
+
+type VendorEdge {
+  cursor: String!
+  node: Vendor!
+}
+
+type VendorConnection {
+  edges: [VendorEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int
+}
+
+input VendorFilter {
+  search: String
+  status: [VendorStatus!]
+  productId: ID
+}
+
+enum MppStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum CycleBand {
+  DAYS_1_10
+  DAYS_11_20
+  DAYS_21_31
+}
+
+type Mpp implements Node {
+  id: ID!
+  code: String!
+  name: String!
+  bmc: Location!
+  sahayakName: String
+  sahayakMobile: PhoneNumber @sensitive
+  cycleBand: CycleBand
+  village: String
+  status: MppStatus!
+}
+
+type MppEdge {
+  cursor: String!
+  node: Mpp!
+}
+
+type MppConnection {
+  edges: [MppEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int
+}
+
+input MppFilter {
+  search: String
+  bmcLocationIds: [ID!]
+  status: [MppStatus!]
+}
+
+# ---------------------------------------------------------------------------
+# Indents
+# ---------------------------------------------------------------------------
+
+enum IndentStatus {
+  DRAFT
+  PENDING_APPROVAL
+  PARTIALLY_APPROVED
+  RETURNED
+  APPROVED
+  REJECTED
+  IN_FULFILMENT
+  FULFILLED
+  CLOSED
+  CANCELLED
+}
+
+enum IndentLineStatus {
+  DRAFT
+  PENDING_APPROVAL
+  RETURNED
+  APPROVED
+  APPROVED_FOR_TRANSFER
+  REJECTED
+  PO_CREATED
+  STN_ISSUED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CLOSED_SHORT
+  CANCELLED
+}
+
+enum Priority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+type Indent implements Node & Auditable {
+  id: ID!
+  "Null while DRAFT."
+  indentNumber: String
+  status: IndentStatus!
+  location: Location!
+  department: Department
+  requestedBy: UserRef!
+  requestedForEmployeeCode: String
+  priority: Priority!
+  requiredBy: Date
+  justification: String
+  budgetCode: String
+  remarks: String
+  lines: [IndentLine!]!
+  estimatedTotal: Money!
+  submittedAt: DateTime
+  attachments: [Document!]!
+  approval: WorkflowInstance
+  timeline: [TimelineEvent!]!
+  purchaseOrders: [PurchaseOrder!]!
+  stns: [Stn!]!
+  grns: [Grn!]!
+  legacyRequisitionNumber: String
+  canEdit: Boolean!
+  canCancel: Boolean!
+  createdAt: DateTime!
+  createdBy: UserRef
+  updatedAt: DateTime
+  updatedBy: UserRef
+  version: Int!
+}
+
+type IndentLine implements Node {
+  id: ID!
+  lineNo: Int!
+  product: Product!
+  productName: String!
+  quantityRequested: Quantity!
+  quantityApproved: Decimal
+  quantityRejected: Decimal
+  quantityOrdered: Decimal
+  quantityTransferred: Decimal
+  quantityReceived: Decimal
+  expectedDeliveryDate: Date
+  estimatedUnitPrice: Money
+  estimatedAmount: Money
+  remark: String
+  "Internal remark is never shown to vendors."
+  remarkInternal: Boolean!
+  status: IndentLineStatus!
+  availableAtRequestingLocation: Decimal
+}
+
+type IndentEdge {
+  cursor: String!
+  node: Indent!
+}
+
+type IndentConnection {
+  edges: [IndentEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int
+}
+
+input IndentFilter {
+  search: String
+  status: [IndentStatus!]
+  lineStatus: [IndentLineStatus!]
+  locationIds: [ID!]
+  departmentIds: [ID!]
+  requestedById: ID
+  productId: ID
+  priority: [Priority!]
+  submittedAt: DateRangeInput
+  mine: Boolean
+}
+
+enum IndentSortField {
+  INDENT_NUMBER
+  SUBMITTED_AT
+  REQUIRED_BY
+  PRIORITY
+  ESTIMATED_TOTAL
+}
+
+input IndentSort {
+  field: IndentSortField!
+  direction: SortDirection!
+}
+
+input IndentLineInput {
+  "Client-generated ID for offline correlation and idempotent line upsert."
+  clientLineId: UUID
+  productId: ID!
+  quantity: Decimal!
+  uomId: ID!
+  expectedDeliveryDate: Date
+  estimatedUnitPrice: Decimal
+  remark: String
+  remarkInternal: Boolean
+}
+
+input CreateIndentInput {
+  idempotencyKey: UUID
+  locationId: ID!
+  departmentId: ID
+  requestedForEmployeeCode: String
+  priority: Priority = NORMAL
+  requiredBy: Date
+  justification: String
+  budgetCode: String
+  remarks: String
+  lines: [IndentLineInput!]!
+  attachmentDocumentIds: [ID!]
+  "When true the indent is submitted in the same call (offline sync path)."
+  submit: Boolean = false
+}
+
+input UpdateIndentInput {
+  id: ID!
+  expectedVersion: Int!
+  departmentId: ID
+  priority: Priority
+  requiredBy: Date
+  justification: String
+  budgetCode: String
+  remarks: String
+  "Full replacement of lines (DRAFT/RETURNED only)."
+  lines: [IndentLineInput!]
+  attachmentDocumentIds: [ID!]
+}
+
+input SubmitIndentInput {
+  id: ID!
+  expectedVersion: Int!
+  idempotencyKey: UUID
+}
+
+input CancelIndentInput {
+  id: ID!
+  expectedVersion: Int!
+  reason: String!
+  "Cancel only these lines; omit for whole indent."
+  lineIds: [ID!]
+}
+
+type IndentPayload {
+  indent: Indent
+  userErrors: [UserError!]!
+}
+
+type DeletePayload {
+  deletedId: ID
+  userErrors: [UserError!]!
+}
+
+# ---------------------------------------------------------------------------
+# Workflow & approvals
+# ---------------------------------------------------------------------------
+
+enum WorkflowSubjectType {
+  INDENT
+  PURCHASE_ORDER
+  GRN_EXCESS
+  STOCK_ADJUSTMENT
+  TRANSFER_REQUEST
+  ADVANCE_SALE_CANCELLATION
+  INVOICE_EXCEPTION
+}
+
+enum WorkflowInstanceStatus {
+  RUNNING
+  COMPLETED
+  RETURNED
+  CANCELLED
+}
+
+enum ApprovalTaskStatus {
+  PENDING
+  ESCALATED
+  APPROVED
+  REJECTED
+  RETURNED
+  CANCELLED
+  REASSIGNED
+}
+
+enum ApprovalActionType {
+  APPROVE
+  APPROVE_FOR_TRANSFER
+  REJECT
+  RETURN
+  DELEGATE
+  REASSIGN
+  ESCALATE
+  REMIND
+  COMMENT
+}
+
+enum SlaState {
+  ON_TRACK
+  AT_RISK
+  BREACHED
+}
+
+type WorkflowInstance implements Node {
+  id: ID!
+  definitionCode: String!
+  versionNo: Int!
+  subjectType: WorkflowSubjectType!
+  subjectId: ID!
+  status: WorkflowInstanceStatus!
+  tasks: [ApprovalTask!]!
+  history: [ApprovalAction!]!
+  startedAt: DateTime!
+  completedAt: DateTime
+}
+
+type ApprovalTask implements Node {
+  id: ID!
+  instance: WorkflowInstance!
+  stepKey: String!
+  stepName: String!
+  subjectType: WorkflowSubjectType!
+  "Subject summary for queue display."
+  subjectNumber: String
+  subjectSummary: String
+  indent: Indent
+  lineIds: [ID!]!
+  amount: Money
+  assignee: UserRef
+  assigneeRoleCode: String
+  onBehalfOf: UserRef
+  status: ApprovalTaskStatus!
+  dueAt: DateTime
+  slaState: SlaState!
+  createdAt: DateTime!
+  actedAt: DateTime
+  version: Int!
+}
+
+type ApprovalAction {
+  id: ID!
+  action: ApprovalActionType!
+  actor: UserRef!
+  onBehalfOf: UserRef
+  remark: String
+  occurredAt: DateTime!
+  stepName: String
+}
+
+type ApprovalTaskEdge {
+  cursor: String!
+  node: ApprovalTask!
+}
+
+type ApprovalTaskConnection {
+  edges: [ApprovalTaskEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int
+}
+
+input ApprovalTaskFilter {
+  status: [ApprovalTaskStatus!]
+  subjectTypes: [WorkflowSubjectType!]
+  locationIds: [ID!]
+  departmentIds: [ID!]
+  categoryIds: [ID!]
+  slaState: [SlaState!]
+  amountMin: Decimal
+  amountMax: Decimal
+  "Only tasks where the caller is the (delegated) assignee."
+  assignedToMe: Boolean = true
+}
+
+input LineDecisionInput {
+  lineId: ID!
+  "Approved quantity ≤ requested; omit to approve full remaining quantity."
+  approvedQuantity: Decimal
+  "Required for APPROVE_FOR_TRANSFER."
+  transferSources: [TransferSourceInput!]
+}
+
+input TransferSourceInput {
+  sourceLocationId: ID!
+  quantity: Decimal!
+}
+
+input ApproveIndentInput {
+  taskId: ID!
+  expectedVersion: Int!
+  idempotencyKey: UUID
+  "Omit to approve all lines in the task at requested quantity."
+  lines: [LineDecisionInput!]
+  remark: String
+}
+
+input ApproveIndentForTransferInput {
+  taskId: ID!
+  expectedVersion: Int!
+  idempotencyKey: UUID
+  lines: [LineDecisionInput!]!
+  remark: String
+}
+
+input RejectIndentInput {
+  taskId: ID!
+  expectedVersion: Int!
+  idempotencyKey: UUID
+  "Omit to reject all lines in the task."
+  lineIds: [ID!]
+  reason: String!
+}
+
+input ReturnIndentInput {
+  taskId: ID!
+  expectedVersion: Int!
+  idempotencyKey: UUID
+  remark: String!
+}
+
+input BulkApprovalInput {
+  taskIds: [ID!]!
+  action: ApprovalActionType!
+  remark: String
+  idempotencyKey: UUID
+}
+
+type BulkApprovalResult {
+  taskId: ID!
+  success: Boolean!
+  error: UserError
+}
+
+type BulkApprovalPayload {
+  results: [BulkApprovalResult!]!
+}
+
+type ApprovalPayload {
+  task: ApprovalTask
+  indent: Indent
+  transferOrder: TransferOrder
+  userErrors: [UserError!]!
+}
+
+type Delegation implements Node {
+  id: ID!
+  delegator: UserRef!
+  delegate: UserRef!
+  definitionCodes: [String!]!
+  maxAmount: Money
+  validFrom: DateTime!
+  validTo: DateTime!
+  active: Boolean!
+}
+
+input CreateDelegationInput {
+  delegateUserId: ID!
+  definitionCodes: [String!]!
+  maxAmount: Decimal
+  validFrom: DateTime!
+  validTo: DateTime!
+  reason: String
+}
+
+type DelegationPayload {
+  delegation: Delegation
+  userErrors: [UserError!]!
+}
+
+enum WorkflowVersionStatus {
+  DRAFT
+  PUBLISHED
+  RETIRED
+}
+
+type WorkflowDefinition implements Node {
+  id: ID!
+  code: String!
+  name: String!
+  subjectType: WorkflowSubjectType!
+  versions: [WorkflowVersion!]!
+  activeVersion: WorkflowVersion
+}
+
+type WorkflowVersion implements Node {
+  id: ID!
+  versionNo: Int!
+  status: WorkflowVersionStatus!
+  "Validated JSON definition: steps, conditions, assignee resolvers, modes, SLA, escalation."
+  definition: JSON!
+  publishedAt: DateTime
+  publishedBy: UserRef
+}
+
+input SaveWorkflowDraftInput {
+  definitionCode: String!
+  definition: JSON!
+  basedOnVersionId: ID
+}
+
+input SimulateWorkflowInput {
+  definitionCode: String!
+  versionId: ID
+  "Sample subject, e.g. an existing indent id or an ad-hoc indent draft."
+  subjectId: ID
+  sample: JSON
+}
+
+type SimulatedStep {
+  stepKey: String!
+  stepName: String!
+  applies: Boolean!
+  assignees: [UserRef!]!
+  reason: String!
+}
+
+type WorkflowSimulation {
+  groups: [SimulatedGroup!]!
+}
+
+type SimulatedGroup {
+  routingKey: String!
+  lineIds: [ID!]!
+  steps: [SimulatedStep!]!
+}
+
+type WorkflowVersionPayload {
+  version: WorkflowVersion
+  userErrors: [UserError!]!
+}
+
+# ---------------------------------------------------------------------------
+# Procurement
+# ---------------------------------------------------------------------------
+
+enum PurchaseOrderStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  SENT
+  PARTIALLY_RECEIVED
+  RECEIVED
+  SHORT_CLOSED
+  CLOSED
+  CANCELLED
+}
+
+enum PurchaseOrderType {
+  STANDARD
+  SAP_REFERENCE
+  NO_PO
+}
+
+type PurchaseOrder implements Node & Auditable {
+  id: ID!
+  poNumber: String!
+  externalPoNumber: String
+  type: PurchaseOrderType!
+  vendor: Vendor!
+  billTo: Location!
+  shipTo: Location!
+  status: PurchaseOrderStatus!
+  orderDate: Date!
+  lines: [PurchaseOrderLine!]!
+  subtotal: Money!
+  taxTotal: Money!
+  grandTotal: Money!
+  sendSuppressed: Boolean!
+  sentAt: DateTime
+  noPoReason: String
+  approval: WorkflowInstance
+  grns: [Grn!]!
+  documents: [Document!]!
+  deliveryLog: [NotificationDelivery!]! @auth(requires: "notification:read_delivery_logs")
+  createdAt: DateTime!
+  createdBy: UserRef
+  updatedAt: DateTime
+  updatedBy: UserRef
+  version: Int!
+}
+
+type PurchaseOrderLine implements Node {
+  id: ID!
+  lineNo: Int!
+  product: Product!
+  productName: String!
+  quantityOrdered: Quantity!
+  unitPrice: Money!
+  taxPct: Decimal!
+  amount: Money!
+  deliveryDate: Date
+  deliveryPointCode: String
+  sapPoLine: SapPoLine
+  quantityReceived: Decimal!
+  quantityAccepted: Decimal!
+  quantityRejected: Decimal!
+  quantityPending: Decimal!
+  indentLines: [IndentLine!]!
+}
+
+type PurchaseOrderEdge {
+  cursor: String!
+  node: PurchaseOrder!
+}
+
+type PurchaseOrderConnection {
+  edges: [PurchaseOrderEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int
+}
+
+input PurchaseOrderFilter {
+  search: String
+  status: [PurchaseOrderStatus!]
+  vendorIds: [ID!]
+  locationIds: [ID!]
+  orderDate: DateRangeInput
+  externalPoNumber: String
+  overdue: Boolean
+}
+
+type ProcurementQueueItem {
+  indentLine: IndentLine!
+  indent: Indent!
+  remainingQuantity: Decimal!
+  suggestedVendors: [VendorProduct!]!
+  approvedBy: UserRef
+  approvedAt: DateTime
+}
+
+type ProcurementQueueEdge {
+  cursor: String!
+  node: ProcurementQueueItem!
+}
+
+type ProcurementQueueConnection {
+  edges: [ProcurementQueueEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int
+}
+
+input ProcurementQueueFilter {
+  search: String
+  productIds: [ID!]
+  locationIds: [ID!]
+  vendorId: ID
+  approvedAt: DateRangeInput
+}
+
+type SapPoLine implements Node {
+  id: ID!
+  sapPoNumber: String!
+  materialCode: String!
+  materialName: String!
+  product: Product
+  orderQuantity: Decimal!
+  consumedQuantity: Decimal!
+  plant: String
+  storageLocation: String
+  documentDate: Date!
+  vendorText: String
+}
+
+input PurchaseOrderLineInput {
+  indentLineAllocations: [IndentLineAllocationInput!]!
+  productId: ID!
+  quantity: Decimal!
+  uomId: ID!
+  unitPrice: Decimal!
+  taxPct: Decimal!
+  deliveryDate: Date
+  deliveryPointCode: String
+  sapPoLineId: ID
+}
+
+input IndentLineAllocationInput {
+  indentLineId: ID!
+  quantity: Decimal!
+}
+
+input CreatePurchaseOrderInput {
+  idempotencyKey: UUID
+  type: PurchaseOrderType!
+  vendorId: ID!
+  externalPoNumber: String
+  billToLocationId: ID!
+  shipToLocationId: ID!
+  orderDate: Date
+  lines: [PurchaseOrderLineInput!]!
+  noPoReason: String
+  terms: String
+  sendSuppressed: Boolean = false
+}
+
+input UpdatePurchaseOrderInput {
+  id: ID!
+  expectedVersion: Int!
+  externalPoNumber: String
+  shipToLocationId: ID
+  lines: [PurchaseOrderLineInput!]
+  terms: String
+  sendSuppressed: Boolean
+}
+
+input SubmitPurchaseOrderInput {
+  id: ID!
+  expectedVersion: Int!
+  idempotencyKey: UUID
+}
+
+input ApprovePurchaseOrderInput {
+  taskId: ID!
+  expectedVersion: Int!
+  approve: Boolean!
+  remark: String
+  idempotencyKey: UUID
+}
+
+input SendPurchaseOrderInput {
+  id: ID!
+  expectedVersion: Int!
+  idempotencyKey: UUID
+  "Contacts to send to; defaults to vendor PO contacts."
+  recipientContactIds: [ID!]
+  additionalEmails: [EmailAddress!]
+  "Vendor delivery-schedule template document to fill and attach."
+  deliveryScheduleTemplateDocumentId: ID
+  message: String
+}
+
+input CancelPurchaseOrderInput {
+  id: ID!
+  expectedVersion: Int!
+  reason: String!
+  reopenIndentLines: Boolean = true
+}
+
+input ShortClosePurchaseOrderInput {
+  id: ID!
+  expectedVersion: Int!
+  reason: String!
+  lineIds: [ID!]
+}
+
+type PurchaseOrderPayload {
+  purchaseOrder: PurchaseOrder
+  userErrors: [UserError!]!
+}
+
+# ---------------------------------------------------------------------------
+# Receiving (GRN)
+# ---------------------------------------------------------------------------
+
+enum GrnStatus {
+  DRAFT
+  PENDING_EXCESS_APPROVAL
+  PENDING_INSPECTION
+  POSTED
+  VERIFIED
+  REVERSED
+  CANCELLED
+}
+
+enum GrnType {
+  PO
+  NO_PO
+}
+
+type Grn implements Node & Auditable {
+  id: ID!
+  grnNumber: String
+  type: GrnType!
+  purchaseOrder: PurchaseOrder
+  vendor: Vendor!
+  warehouse: Warehouse!
+  challanNumber: String!
+  challanDate: Date!
+  invoiceNumber: String
+  invoiceDate: Date
+  vehicleNumber: String
+  receivedAt: DateTime!
+  status: GrnStatus!
+  lines: [GrnLine!]!
+  documents: [Document!]!
+  pdf: Document
+  postedAt: DateTime
+  verification: GrnVerification
+  reversalOf: Grn
+  legacyGrnNumber: String
+  createdAt: DateTime!
+  createdBy: UserRef
+  updatedAt: DateTime
+  updatedBy: UserRef
+  version: Int!
+}
+
+type GrnLine implements Node {
+  id: ID!
+  purchaseOrderLine: PurchaseOrderLine
+  product: Product!
+  quantityOrdered: Decimal
+  quantityReceived: Decimal!
+  quantityAccepted: Decimal!
+  quantityRejected: Decimal!
+  quantityDamaged: Decimal!
+  rejectReasonCode: String
+  batchNo: String
+  mfgDate: Date
+  expiryDate: Date
+  serialNumbers: [String!]!
+  remarks: String
+}
+
+type GrnVerification {
+  status: String!
+  remarks: String
+  verifiedBy: UserRef
+  verifiedAt: DateTime
+}
+
+type GrnEdge {
+  cursor: String!
+  node: Grn!
+}
+
+type GrnConnection {
+  edges: [GrnEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int
+}
+
+input GrnFilter {
+  search: String
+  status: [GrnStatus!]
+  vendorIds: [ID!]
+  locationIds: [ID!]
+  receivedAt: DateRangeInput
+  purchaseOrderId: ID
+  verificationPending: Boolean
+}
+
+input GrnLineInput {
+  purchaseOrderLineId: ID
+  productId: ID!
+  quantityReceived: Decimal!
+  quantityAccepted: Decimal!
+  quantityRejected: Decimal!
+  quantityDamaged: Decimal = "0"
+  rejectReasonCode: String
+  batchNo: String
+  mfgDate: Date
+  expiryDate: Date
+  serialNumbers: [String!]
+  remarks: String
+}
+
+input CreateGrnInput {
+  idempotencyKey: UUID
+  type: GrnType!
+  purchaseOrderId: ID
+  vendorId: ID
+  warehouseId: ID!
+  challanNumber: String!
+  challanDate: Date!
+  invoiceNumber: String
+  invoiceDate: Date
+  vehicleNumber: String
+  receivedAt: DateTime
+  lines: [GrnLineInput!]!
+  challanDocumentId: ID!
+  invoiceDocumentId: ID
+  approvalEvidenceDocumentIds: [ID!]
+  photoDocumentIds: [ID!]
+  "Post immediately if no approval/inspection is required."
+  post: Boolean = true
+}
+
+input PostGrnInput {
+  id: ID!
+  expectedVersion: Int!
+  idempotencyKey: UUID
+}
+
+input CancelGrnInput {
+  id: ID!
+  expectedVersion: Int!
+  reason: String!
+}
+
+input ReverseGrnInput {
+  id: ID!
+  expectedVersion: Int!
+  idempotencyKey: UUID
+  reason: String!
+  "Omit for full reversal."
+  lines: [GrnReversalLineInput!]
+}
+
+input GrnReversalLineInput {
+  grnLineId: ID!
+  quantity: Decimal!
+}
+
+input VerifyGrnInput {
+  id: ID!
+  expectedVersion: Int!
+  verified: Boolean!
+  remarks: String
+}
+
+type GrnPayload {
+  grn: Grn
+  "Set when an excess-approval task was created."
+  approvalTask: ApprovalTask
+  userErrors: [UserError!]!
+}
+
+# ---------------------------------------------------------------------------
+# Logistics: transfers & STN
+# ---------------------------------------------------------------------------
+
+enum TransferOrderStatus {
+  PENDING_APPROVAL
+  PENDING_PLANNING
+  STN_ISSUED
+  PARTIALLY_DISPATCHED
+  DISPATCHED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  DISCREPANCY_OPEN
+  CLOSED
+  CANCELLED
+}
+
+enum StnStatus {
+  DRAFT
+  STN_ISSUED
+  PARTIALLY_DISPATCHED
+  DISPATCHED
+  IN_TRANSIT
+  PARTIALLY_RECEIVED
+  RECEIVED
+  DISCREPANCY_OPEN
+  CLOSED
+  CANCELLED
+}
+
+type TransferOrder implements Node & Auditable {
+  id: ID!
+  transferNumber: String!
+  source: Location!
+  destination: Location!
+  status: TransferOrderStatus!
+  origin: String!
+  lines: [TransferOrderLine!]!
+  stns: [Stn!]!
+  createdAt: DateTime!
+  createdBy: UserRef
+  updatedAt: DateTime
+  updatedBy: UserRef
+  version: Int!
+}
+
+type TransferOrderLine implements Node {
+  id: ID!
+  product: Product!
+  quantity: Quantity!
+  quantityOnStn: Decimal!
+  indentLine: IndentLine
+  status: String!
+}
+
+type Stn implements Node & Auditable {
+  id: ID!
+  stnNumber: String!
+  transferOrder: TransferOrder!
+  sourceWarehouse: Warehouse!
+  destinationWarehouse: Warehouse!
+  transporterName: String
+  vehicleNumber: String
+  driverName: String
+  driverPhone: PhoneNumber @sensitive
+  ewayBillNumber: String
+  expectedArrival: DateTime
+  status: StnStatus!
+  lines: [StnLine!]!
+  receipts: [StnReceipt!]!
+  discrepancies: [TransitDiscrepancy!]!
+  pdf: Document
+  documents: [Document!]!
+  dispatchedAt: DateTime
+  receivedAt: DateTime
+  legacyStnNumber: String
+  createdAt: DateTime!
+  createdBy: UserRef
+  updatedAt: DateTime
+  updatedBy: UserRef
+  version: Int!
+}
+
+type StnLine implements Node {
+  id: ID!
+  product: Product!
+  quantityPlanned: Decimal!
+  quantityDispatched: Decimal!
+  quantityReceived: Decimal!
+  quantityRejected: Decimal!
+  quantityInTransit: Decimal!
+}
+
+type StnReceipt implements Node {
+  id: ID!
+  receiptNumber: String!
+  receivedAt: DateTime!
+  receivedBy: UserRef!
+  lines: [StnReceiptLine!]!
+  documents: [Document!]!
+}
+
+type StnReceiptLine {
+  stnLine: StnLine!
+  quantityReceived: Decimal!
+  quantityAccepted: Decimal!
+  quantityRejected: Decimal!
+  reason: String
+}
+
+enum DiscrepancyType {
+  SHORT
+  DAMAGED
+  EXCESS
+}
+
+enum DiscrepancyResolution {
+  RETURN_TO_SOURCE
+  WRITE_OFF
+  LATE_RECEIPT
+}
+
+type TransitDiscrepancy implements Node {
+  id: ID!
+  stnLine: StnLine!
+  type: DiscrepancyType!
+  quantity: Decimal!
+  status: String!
+  resolution: DiscrepancyResolution
+  resolvedBy: UserRef
+  resolvedAt: DateTime
+  remarks: String
+}
+
+type TransferOrderEdge {
+  cursor: String!
+  node: TransferOrder!
+}
+
+type TransferOrderConnection {
+  edges: [TransferOrderEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int
+}
+
+input TransferOrderFilter {
+  status: [TransferOrderStatus!]
+  sourceLocationIds: [ID!]
+  destinationLocationIds: [ID!]
+  productId: ID
+  createdAt: DateRangeInput
+}
+
+type StnEdge {
+  cursor: String!
+  node: Stn!
+}
+
+type StnConnection {
+  edges: [StnEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int
+}
+
+input StnFilter {
+  search: String
+  status: [StnStatus!]
+  sourceLocationIds: [ID!]
+  destinationLocationIds: [ID!]
+  dispatchedAt: DateRangeInput
+  awaitingMyAction: Boolean
+}
+
+input CreateTransferOrderInput {
+  idempotencyKey: UUID
+  sourceLocationId: ID!
+  destinationLocationId: ID!
+  lines: [TransferOrderLineInput!]!
+  reason: String!
+}
+
+input TransferOrderLineInput {
+  productId: ID!
+  quantity: Decimal!
+  uomId: ID!
+}
+
+input CreateStnInput {
+  idempotencyKey: UUID
+  transferOrderLineIds: [ID!]!
+  "Optional partial quantities per transfer line."
+  quantities: [StnQuantityInput!]
+  transporterName: String
+  vehicleNumber: String!
+  driverName: String
+  driverPhone: PhoneNumber
+  ewayBillNumber: String
+  ewayBillDocumentId: ID
+  expectedArrival: DateTime
+  notifyUserIds: [ID!]
+}
+
+input StnQuantityInput {
+  transferOrderLineId: ID!
+  quantity: Decimal!
+}
+
+input DispatchStnInput {
+  id: ID!
+  expectedVersion: Int!
+  idempotencyKey: UUID
+  lines: [StnLineQuantityInput!]!
+  remarks: String
+}
+
+input StnLineQuantityInput {
+  stnLineId: ID!
+  quantity: Decimal!
+  batchId: ID
+}
+
+input ReceiveStnInput {
+  id: ID!
+  expectedVersion: Int!
+  idempotencyKey: UUID
+  warehouseId: ID!
+  lines: [ReceiveStnLineInput!]!
+  stnCopyDocumentId: ID
+  ewayBillDocumentId: ID
+  evidenceDocumentIds: [ID!]
+  "Close the receipt even if quantities are short (opens discrepancies)."
+  closeWithDiscrepancy: Boolean = false
+}
+
+input ReceiveStnLineInput {
+  stnLineId: ID!
+  quantityReceived: Decimal!
+  quantityAccepted: Decimal!
+  quantityRejected: Decimal!
+  reason: String
+}
+
+input ResolveDiscrepancyInput {
+  id: ID!
+  resolution: DiscrepancyResolution!
+  remarks: String!
+  idempotencyKey: UUID
+}
+
+type TransferOrderPayload {
+  transferOrder: TransferOrder
+  userErrors: [UserError!]!
+}
+
+type StnPayload {
+  stn: Stn
+  userErrors: [UserError!]!
+}
+
+type DiscrepancyPayload {
+  discrepancy: TransitDiscrepancy
+  userErrors: [UserError!]!
+}
+
+# ---------------------------------------------------------------------------
+# Inventory
+# ---------------------------------------------------------------------------
+
+enum MovementType {
+  OPENING
+  GRN_RECEIPT
+  GRN_REVERSAL
+  RETURN_TO_VENDOR
+  TRANSFER_OUT
+  TRANSIT_IN
+  TRANSIT_OUT
+  TRANSFER_IN
+  TRANSIT_WRITE_OFF
+  ISSUE_ADVANCE_SALE
+  ISSUE_GENERAL_SALE
+  ISSUE_OTHER_SALE
+  SALE_REVERSAL
+  RETURN_FROM_MPP
+  ISSUE_INTERNAL
+  ADJUSTMENT_IN
+  ADJUSTMENT_OUT
+  DAMAGE
+  EXPIRY
+  DISPOSAL
+  CORRECTION
+}
+
+enum StockBand {
+  HIGH
+  MEDIUM
+  LOW
+  OUT_OF_STOCK
+}
+
+type StockBalance {
+  warehouse: Warehouse!
+  location: Location!
+  product: Product!
+  batchNo: String
+  onHand: Decimal!
+  reserved: Decimal!
+  available: Decimal!
+  uom: Uom!
+  avgUnitCost: Money
+  value: Money
+  band: StockBand!
+  lastMovementAt: DateTime
+}
+
+type StockBalanceEdge {
+  cursor: String!
+  node: StockBalance!
+}
+
+type InventoryConnection {
+  edges: [StockBalanceEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int
+  totals: InventoryTotals!
+}
+
+type InventoryTotals {
+  quantity: Decimal!
+  value: Money!
+  highCount: Int!
+  mediumCount: Int!
+  lowCount: Int!
+  outOfStockCount: Int!
+}
+
+input InventoryFilter {
+  search: String
+  locationIds: [ID!]
+  warehouseIds: [ID!]
+  productIds: [ID!]
+  categoryIds: [ID!]
+  bands: [StockBand!]
+  onlyNonZero: Boolean = true
+  "Include locations flagged as excluded from cross-location view."
+  includeExcluded: Boolean = false
+}
+
+enum InventorySortField {
+  PRODUCT_NAME
+  AVAILABLE
+  VALUE
+  LAST_MOVEMENT
+}
+
+input InventorySort {
+  field: InventorySortField!
+  direction: SortDirection!
+}
+
+type StockTransaction implements Node {
+  id: ID!
+  occurredAt: DateTime!
+  warehouse: Warehouse!
+  product: Product!
+  movementType: MovementType!
+  quantity: Decimal!
+  direction: Int!
+  quantityBefore: Decimal!
+  quantityAfter: Decimal!
+  sourceType: String!
+  sourceNumber: String
+  sourceId: ID
+  reasonCode: String
+  remarks: String
+  performedBy: UserRef!
+}
+
+type StockTransactionEdge {
+  cursor: String!
+  node: StockTransaction!
+}
+
+type StockTransactionConnection {
+  edges: [StockTransactionEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int
+}
+
+input StockTransactionFilter {
+  warehouseIds: [ID!]
+  locationIds: [ID!]
+  productId: ID
+  movementTypes: [MovementType!]
+  occurredAt: DateTimeRangeInput
+  sourceNumber: String
+}
+
+type StockPeriodSummary {
+  product: Product!
+  warehouse: Warehouse!
+  openingQuantity: Decimal!
+  receivedQuantity: Decimal!
+  issuedQuantity: Decimal!
+  transferredQuantity: Decimal!
+  adjustedQuantity: Decimal!
+  closingQuantity: Decimal!
+}
+
+enum AdjustmentStatus {
+  PENDING_APPROVAL
+  APPROVED
+  POSTED
+  REJECTED
+  CANCELLED
+}
+
+type StockAdjustment implements Node & Auditable {
+  id: ID!
+  adjustmentNumber: String!
+  warehouse: Warehouse!
+  reasonCode: String!
+  status: AdjustmentStatus!
+  lines: [StockAdjustmentLine!]!
+  evidence: [Document!]!
+  requestedBy: UserRef!
+  approvedBy: UserRef
+  createdAt: DateTime!
+  createdBy: UserRef
+  updatedAt: DateTime
+  updatedBy: UserRef
+  version: Int!
+}
+
+type StockAdjustmentLine {
+  product: Product!
+  batchNo: String
+  bookQuantity: Decimal!
+  quantityDelta: Decimal!
+  countedQuantity: Decimal
+}
+
+input AdjustmentLineInput {
+  productId: ID!
+  batchId: ID
+  "Signed delta; or supply countedQuantity to compute delta (legacy SET)."
+  quantityDelta: Decimal
+  countedQuantity: Decimal
+}
+
+input RequestStockAdjustmentInput {
+  idempotencyKey: UUID
+  warehouseId: ID!
+  reasonCode: String!
+  remarks: String!
+  lines: [AdjustmentLineInput!]!
+  evidenceDocumentIds: [ID!]
+}
+
+input DecideStockAdjustmentInput {
+  taskId: ID!
+  expectedVersion: Int!
+  approve: Boolean!
+  remark: String
+  idempotencyKey: UUID
+}
+
+type StockAdjustmentPayload {
+  adjustment: StockAdjustment
+  userErrors: [UserError!]!
+}
+
+type StockCount implements Node {
+  id: ID!
+  countNumber: String!
+  warehouse: Warehouse!
+  status: String!
+  snapshotAt: DateTime!
+  lines: [StockCountLine!]!
+}
+
+type StockCountLine {
+  product: Product!
+  bookQuantity: Decimal!
+  countedQuantity: Decimal
+  variance: Decimal
+}
+
+input StartStockCountInput {
+  warehouseId: ID!
+  productIds: [ID!]
+  categoryIds: [ID!]
+}
+
+input RecordStockCountInput {
+  countId: ID!
+  idempotencyKey: UUID
+  entries: [StockCountEntryInput!]!
+}
+
+input StockCountEntryInput {
+  productId: ID!
+  batchId: ID
+  countedQuantity: Decimal!
+}
+
+type StockCountPayload {
+  count: StockCount
+  userErrors: [UserError!]!
+}
+
+# ---------------------------------------------------------------------------
+# MPP distribution
+# ---------------------------------------------------------------------------
+
+enum SaleStatus {
+  PENDING
+  PENDING_SYNC
+  ISSUED
+  DELIVERED
+  RECONCILED
+  CANCELLED
+  SYNC_FAILED
+}
+
+enum PodStatus {
+  PENDING
+  UPLOADED
+  NOT_REQUIRED
+}
+
+type AdvanceSale implements Node & Auditable {
+  id: ID!
+  saleNumber: String!
+  "10-digit reference communicated to the Sahayak; also the POD verification code."
+  saleCode: String!
+  location: Location!
+  mpp: Mpp!
+  cycle: PaymentCycle!
+  saleDate: Date!
+  status: SaleStatus!
+  podStatus: PodStatus!
+  lines: [AdvanceSaleLine!]!
+  receipt: Document
+  receiptStatus: DocumentGenerationStatus!
+  pod: Pod
+  notifications: [NotificationDelivery!]! @auth(requires: "notification:read_delivery_logs")
+  channel: Channel!
+  clientCreatedAt: DateTime
+  cancelledReason: String
+  createdAt: DateTime!
+  createdBy: UserRef
+  updatedAt: DateTime
+  updatedBy: UserRef
+  version: Int!
+}
+
+enum DocumentGenerationStatus {
+  PENDING
+  GENERATING
+  READY
+  FAILED
+}
+
+type AdvanceSaleLine {
+  lineNo: Int!
+  product: Product!
+  productName: String!
+  sapProductName: String
+  quantity: Quantity!
+}
+
+type Pod implements Node {
+  id: ID!
+  document: Document!
+  capturedAt: DateTime!
+  uploadedBy: UserRef!
+  latitude: Float
+  longitude: Float
+}
+
+type AdvanceSaleEdge {
+  cursor: String!
+  node: AdvanceSale!
+}
+
+type AdvanceSaleConnection {
+  edges: [AdvanceSaleEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int
+}
+
+input AdvanceSaleFilter {
+  search: String
+  locationIds: [ID!]
+  mppIds: [ID!]
+  cycleIds: [ID!]
+  status: [SaleStatus!]
+  podStatus: [PodStatus!]
+  saleDate: DateRangeInput
+  mine: Boolean
+}
+
+input AdvanceSaleLineInput {
+  productId: ID!
+  quantity: Decimal!
+  uomId: ID!
+}
+
+input CreateAdvanceSaleInput {
+  "Client UUID; mandatory for offline-created sales."
+  idempotencyKey: UUID!
+  locationId: ID!
+  mppId: ID!
+  cycleId: ID!
+  saleDate: Date!
+  lines: [AdvanceSaleLineInput!]!
+  clientCreatedAt: DateTime
+  channel: Channel = WEB
+}
+
+input UploadPodInput {
+  idempotencyKey: UUID
+  subjectType: PodSubjectType!
+  subjectId: ID!
+  verificationCode: String!
+  documentId: ID!
+  capturedAt: DateTime
+  latitude: Float
+  longitude: Float
+}
+
+enum PodSubjectType {
+  ADVANCE_SALE
+  GENERAL_SALE
+  OTHER_SALE
+  STN
+}
+
+input CancelAdvanceSaleInput {
+  id: ID!
+  expectedVersion: Int!
+  reason: String!
+  idempotencyKey: UUID
+}
+
+type AdvanceSalePayload {
+  advanceSale: AdvanceSale
+  userErrors: [UserError!]!
+}
+
+type PodPayload {
+  pod: Pod
+  userErrors: [UserError!]!
+}
+
+enum GeneralSaleOrigin {
+  RECONCILIATION
+  MANUAL
+}
+
+type GeneralSale implements Node {
+  id: ID!
+  saleCode: String
+  origin: GeneralSaleOrigin!
+  mpp: Mpp!
+  location: Location!
+  cycle: PaymentCycle!
+  status: SaleStatus!
+  lines: [AdvanceSaleLine!]!
+  reconciliationRecord: ReconciliationRecord
+  pod: Pod
+  createdAt: DateTime!
+}
+
+type GeneralSaleEdge {
+  cursor: String!
+  node: GeneralSale!
+}
+
+type GeneralSaleConnection {
+  edges: [GeneralSaleEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int
+}
+
+input GeneralSaleFilter {
+  locationIds: [ID!]
+  mppIds: [ID!]
+  cycleIds: [ID!]
+  status: [SaleStatus!]
+}
+
+input CreateGeneralSaleInput {
+  idempotencyKey: UUID!
+  mppId: ID!
+  cycleId: ID!
+  lines: [AdvanceSaleLineInput!]!
+  reason: String!
+}
+
+input DispatchGeneralSaleInput {
+  id: ID!
+  expectedVersion: Int!
+  idempotencyKey: UUID!
+  warehouseId: ID!
+}
+
+type GeneralSalePayload {
+  generalSale: GeneralSale
+  userErrors: [UserError!]!
+}
+
+# ---------------------------------------------------------------------------
+# Cycles & reconciliation
+# ---------------------------------------------------------------------------
+
+enum CycleStatus {
+  PLANNED
+  ACTIVE
+  INACTIVE
+  RECONCILING
+  CLOSED
+}
+
+type CycleMonth implements Node {
+  id: ID!
+  year: Int!
+  month: Int!
+  name: String!
+  cycles: [PaymentCycle!]!
+}
+
+type PaymentCycle implements Node {
+  id: ID!
+  cycleMonth: CycleMonth!
+  cycleNo: Int!
+  name: String!
+  sapCycleNumber: String
+  startDate: Date!
+  endDate: Date!
+  status: CycleStatus!
+  isActive: Boolean!
+  durationDays: Int!
+}
+
+input CreateCycleMonthInput {
+  year: Int!
+  month: Int!
+  "Create default cycles 1–10, 11–20, 21–end."
+  createDefaultCycles: Boolean = true
+  description: String
+}
+
+input UpsertCycleInput {
+  id: ID
+  cycleMonthId: ID!
+  cycleNo: Int!
+  name: String!
+  sapCycleNumber: String
+  startDate: Date!
+  endDate: Date!
+  expectedVersion: Int
+}
+
+type CycleMonthPayload {
+  cycleMonth: CycleMonth
+  userErrors: [UserError!]!
+}
+
+type CyclePayload {
+  cycle: PaymentCycle
+  userErrors: [UserError!]!
+}
+
+enum SaleEntryStatus {
+  OK
+  OVER_SOLD
+  UNDER_SOLD
+  NOT_SOLD
+}
+
+type SaleEntry {
+  location: Location!
+  mpp: Mpp!
+  product: Product!
+  advanceQuantity: Decimal!
+  sapQuantity: Decimal!
+  status: SaleEntryStatus!
+}
+
+enum ImportKind {
+  PRODUCT_MAPPING
+  VENDOR_PRODUCT
+  MPP_MASTER
+  SAP_PO
+  SAP_SALES
+  RECON_SHEET
+  OPENING_STOCK
+  INDENT_BULK
+  STOCK_SALE
+  STOCK_FILLED
+  STOCK_CORRECTED
+  SAP_ORDER_DEMAND
+}
+
+enum ImportStatus {
+  UPLOADED
+  VALIDATING
+  VALIDATION_FAILED
+  PREVIEW_READY
+  PROCESSING
+  PROCESSED
+  PROCESSED_WITH_EXCEPTIONS
+  PARTIAL
+  FAILED
+  DISCARDED
+  PUBLISHED
+  SUPERSEDED
+}
+
+type ImportBatch implements Node {
+  id: ID!
+  kind: ImportKind!
+  fileName: String!
+  status: ImportStatus!
+  totalRows: Int!
+  processedRows: Int!
+  succeededRows: Int!
+  failedRows: Int!
+  progressPct: Float!
+  errors(first: Int = 50, after: String): ImportErrorConnection!
+  resultDocument: Document
+  uploadedBy: UserRef!
+  startedAt: DateTime
+  completedAt: DateTime
+}
+
+type ImportError {
+  rowIndex: Int!
+  field: String
+  value: String
+  rule: String!
+  message: String!
+  suggestion: String
+  critical: Boolean!
+}
+
+type ImportErrorEdge {
+  cursor: String!
+  node: ImportError!
+}
+
+type ImportErrorConnection {
+  edges: [ImportErrorEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int
+}
+
+input StartImportInput {
+  idempotencyKey: UUID
+  kind: ImportKind!
+  documentId: ID!
+  cycleId: ID
+  "Validate and preview only; commit with commitImport."
+  previewOnly: Boolean = true
+  options: JSON
+}
+
+input CommitImportInput {
+  batchId: ID!
+  idempotencyKey: UUID
+}
+
+type ImportPayload {
+  batch: ImportBatch
+  userErrors: [UserError!]!
+}
+
+enum ReconciliationStatus {
+  PERFECT_MATCH
+  UNDER_RECORDED
+  OVER_RECORDED
+  NOT_RECORDED
+}
+
+type ReconciliationSheet implements Node {
+  id: ID!
+  cycle: PaymentCycle!
+  versionNo: Int!
+  status: ImportStatus!
+  fileName: String!
+  totalRecords: Int!
+  perfectMatchCount: Int!
+  underRecordedCount: Int!
+  overRecordedCount: Int!
+  notRecordedCount: Int!
+  exceptionCount: Int!
+  uploadedBy: UserRef!
+  processedAt: DateTime
+  publishedAt: DateTime
+  records(filter: ReconciliationRecordFilter, pagination: PaginationInput): ReconciliationRecordConnection!
+}
+
+type ReconciliationRecord implements Node {
+  id: ID!
+  location: Location
+  mpp: Mpp
+  mppCodeRaw: String!
+  product: Product
+  productRaw: String!
+  advanceQuantity: Decimal!
+  sapQuantity: Decimal!
+  status: ReconciliationStatus!
+  matchQuality: String
+  toBeSent: Decimal!
+  toBeDeducted: Decimal!
+  isService: Boolean!
+  exceptionCode: String
+  ledger: MppProductLedgerEntry
+  acknowledgedBy: UserRef
+  acknowledgedAt: DateTime
+  acknowledgementComment: String
+}
+
+type ReconciliationRecordEdge {
+  cursor: String!
+  node: ReconciliationRecord!
+}
+
+type ReconciliationRecordConnection {
+  edges: [ReconciliationRecordEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int
+}
+
+input ReconciliationRecordFilter {
+  locationIds: [ID!]
+  status: [ReconciliationStatus!]
+  onlyExceptions: Boolean
+  search: String
+  acknowledged: Boolean
+}
+
+type ReconciliationSheetEdge {
+  cursor: String!
+  node: ReconciliationSheet!
+}
+
+type ReconciliationSheetConnection {
+  edges: [ReconciliationSheetEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int
+}
+
+input ReconciliationSheetFilter {
+  cycleIds: [ID!]
+  status: [ImportStatus!]
+}
+
+type MppProductLedgerEntry {
+  mpp: Mpp!
+  product: Product!
+  cycle: PaymentCycle!
+  openingBalance: Decimal!
+  advanceQuantity: Decimal!
+  sapQuantity: Decimal!
+  closingBalance: Decimal!
+  balanceMeaning: String!
+}
+
+type MppLedgerEdge {
+  cursor: String!
+  node: MppProductLedgerEntry!
+}
+
+type MppLedgerConnection {
+  edges: [MppLedgerEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int
+}
+
+input MppLedgerFilter {
+  locationIds: [ID!]
+  mppIds: [ID!]
+  productIds: [ID!]
+  cycleIds: [ID!]
+  year: Int
+  month: Int
+  search: String
+  nonZeroOnly: Boolean
+}
+
+input AcknowledgeReconciliationInput {
+  recordIds: [ID!]!
+  comment: String
+}
+
+input ResolveReconciliationExceptionInput {
+  recordId: ID!
+  mppId: ID
+  productId: ID
+  waive: Boolean = false
+  remark: String!
+}
+
+type ReconciliationPayload {
+  sheet: ReconciliationSheet
+  records: [ReconciliationRecord!]
+  userErrors: [UserError!]!
+}
+
+# ---------------------------------------------------------------------------
+# Finance
+# ---------------------------------------------------------------------------
+
+enum InvoiceStatus {
+  DRAFT
+  SUBMITTED
+  MATCHED
+  EXCEPTION
+  APPROVED
+  ON_HOLD
+  REJECTED
+}
+
+enum MatchStatus {
+  MATCHED
+  QTY_MISMATCH
+  PRICE_MISMATCH
+  MISSING_GRN
+  MISSING_PO
+}
+
+enum PaymentStatus {
+  UNPAID
+  SCHEDULED
+  PARTIALLY_PAID
+  PAID
+}
+
+type Invoice implements Node & Auditable {
+  id: ID!
+  vendor: Vendor!
+  invoiceNumber: String!
+  invoiceDate: Date!
+  purchaseOrder: PurchaseOrder
+  status: InvoiceStatus!
+  paymentStatus: PaymentStatus!
+  lines: [InvoiceLine!]!
+  subtotal: Money!
+  taxTotal: Money!
+  grandTotal: Money!
+  documents: [Document!]!
+  payments: [PaymentRecord!]!
+  createdAt: DateTime!
+  createdBy: UserRef
+  updatedAt: DateTime
+  updatedBy: UserRef
+  version: Int!
+}
+
+type InvoiceLine {
+  id: ID!
+  product: Product
+  purchaseOrderLine: PurchaseOrderLine
+  quantity: Decimal!
+  unitPrice: Money!
+  taxPct: Decimal!
+  amount: Money!
+  match: MatchResult
+}
+
+type MatchResult {
+  status: MatchStatus!
+  quantityPo: Decimal
+  quantityGrnAccepted: Decimal
+  quantityInvoiced: Decimal!
+  pricePo: Money
+  priceInvoiced: Money!
+  varianceAmount: Money!
+  resolution: String
+  resolvedBy: UserRef
+}
+
+type PaymentRecord {
+  id: ID!
+  amount: Money!
+  paidOn: Date!
+  reference: String!
+  mode: String
+}
+
+type InvoiceEdge {
+  cursor: String!
+  node: Invoice!
+}
+
+type InvoiceConnection {
+  edges: [InvoiceEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int
+}
+
+input InvoiceFilter {
+  search: String
+  status: [InvoiceStatus!]
+  paymentStatus: [PaymentStatus!]
+  vendorIds: [ID!]
+  invoiceDate: DateRangeInput
+}
+
+input InvoiceLineInput {
+  purchaseOrderLineId: ID
+  grnLineIds: [ID!]
+  productId: ID
+  quantity: Decimal!
+  unitPrice: Decimal!
+  taxPct: Decimal!
+}
+
+input CreateInvoiceInput {
+  idempotencyKey: UUID
+  vendorId: ID!
+  invoiceNumber: String!
+  invoiceDate: Date!
+  purchaseOrderId: ID
+  lines: [InvoiceLineInput!]!
+  documentId: ID
+}
+
+input ResolveInvoiceExceptionInput {
+  invoiceId: ID!
+  expectedVersion: Int!
+  action: InvoiceExceptionAction!
+  reason: String!
+}
+
+enum InvoiceExceptionAction {
+  APPROVE
+  HOLD
+  REJECT
+  REQUEST_CREDIT_NOTE
+}
+
+input RecordPaymentInput {
+  invoiceId: ID!
+  amount: Decimal!
+  paidOn: Date!
+  reference: String!
+  mode: String
+  idempotencyKey: UUID
+}
+
+type InvoicePayload {
+  invoice: Invoice
+  userErrors: [UserError!]!
+}
+
+# ---------------------------------------------------------------------------
+# Documents
+# ---------------------------------------------------------------------------
+
+enum DocumentStatus {
+  PENDING_UPLOAD
+  PENDING_SCAN
+  AVAILABLE
+  QUARANTINED
+  SUPERSEDED
+  DELETED
+}
+
+type Document implements Node {
+  id: ID!
+  typeCode: String!
+  title: String!
+  fileName: String!
+  mimeType: String!
+  sizeBytes: Int!
+  sha256: String!
+  status: DocumentStatus!
+  versionNo: Int!
+  versions: [DocumentVersionInfo!]!
+  uploadedBy: UserRef!
+  uploadedAt: DateTime!
+  "Short-lived signed URL (5 min); null unless AVAILABLE and caller authorised."
+  downloadUrl: String
+  previewUrl: String
+}
+
+type DocumentVersionInfo {
+  versionNo: Int!
+  fileName: String!
+  sizeBytes: Int!
+  uploadedBy: UserRef!
+  uploadedAt: DateTime!
+}
+
+type DocumentEdge {
+  cursor: String!
+  node: Document!
+}
+
+type DocumentConnection {
+  edges: [DocumentEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int
+}
+
+input DocumentFilter {
+  search: String
+  typeCodes: [String!]
+  entityType: String
+  entityId: ID
+  locationIds: [ID!]
+  uploadedAt: DateRangeInput
+}
+
+# ---------------------------------------------------------------------------
+# Notifications
+# ---------------------------------------------------------------------------
+
+enum NotificationChannel {
+  IN_APP
+  PUSH
+  EMAIL
+  SMS
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  CRITICAL
+}
+
+enum DeliveryStatus {
+  QUEUED
+  SENDING
+  RETRY_SCHEDULED
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  NOT_REGISTERED
+}
+
+type Notification implements Node {
+  id: ID!
+  category: String!
+  title: String!
+  body: String!
+  link: String
+  priority: NotificationPriority!
+  createdAt: DateTime!
+  readAt: DateTime
+}
+
+type NotificationEdge {
+  cursor: String!
+  node: Notification!
+}
+
+type NotificationConnection {
+  edges: [NotificationEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int
+  unreadCount: Int!
+}
+
+input NotificationFilter {
+  unreadOnly: Boolean
+  categories: [String!]
+}
+
+type NotificationDelivery implements Node {
+  id: ID!
+  channel: NotificationChannel!
+  recipientMasked: String!
+  templateCode: String!
+  status: DeliveryStatus!
+  attempts: Int!
+  provider: String
+  providerMessageId: String
+  errorCode: String
+  errorMessage: String
+  sentAt: DateTime
+  deliveredAt: DateTime
+  readAt: DateTime
+  createdAt: DateTime!
+}
+
+type NotificationDeliveryEdge {
+  cursor: String!
+  node: NotificationDelivery!
+}
+
+type NotificationDeliveryConnection {
+  edges: [NotificationDeliveryEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int
+}
+
+input NotificationDeliveryFilter {
+  channels: [NotificationChannel!]
+  status: [DeliveryStatus!]
+  templateCodes: [String!]
+  createdAt: DateTimeRangeInput
+  search: String
+}
+
+type NotificationPreference {
+  category: String!
+  channel: NotificationChannel!
+  enabled: Boolean!
+  mandatory: Boolean!
+}
+
+input NotificationPreferenceInput {
+  category: String!
+  channel: NotificationChannel!
+  enabled: Boolean!
+}
+
+type NotificationTemplate implements Node {
+  id: ID!
+  code: String!
+  channel: NotificationChannel!
+  locale: Locale!
+  versionNo: Int!
+  subject: String
+  body: String!
+  providerTemplateName: String
+  variables: [String!]!
+  status: String!
+}
+
+input SaveNotificationTemplateInput {
+  code: String!
+  channel: NotificationChannel!
+  locale: Locale!
+  subject: String
+  body: String!
+  providerTemplateName: String
+  variables: [String!]!
+  publish: Boolean = false
+}
+
+type NotificationTemplatePayload {
+  template: NotificationTemplate
+  userErrors: [UserError!]!
+}
+
+input RegisterPushDeviceInput {
+  token: String!
+  platform: String!
+  deviceName: String
+}
+
+type MessagingAnalytics {
+  total: Int!
+  sent: Int!
+  delivered: Int!
+  read: Int!
+  failed: Int!
+  notRegistered: Int!
+  medianTimeToReadSeconds: Int
+}
+
+# ---------------------------------------------------------------------------
+# Dashboards, reports, search, exports
+# ---------------------------------------------------------------------------
+
+type KpiValue {
+  key: String!
+  label: String!
+  value: Decimal!
+  unit: String
+  "Change vs previous period, percentage."
+  trendPct: Decimal
+  link: String
+}
+
+type SeriesPoint {
+  x: String!
+  y: Decimal!
+}
+
+type ChartSeries {
+  key: String!
+  label: String!
+  points: [SeriesPoint!]!
+}
+
+type DashboardWidget {
+  key: String!
+  title: String!
+  type: String!
+  kpis: [KpiValue!]
+  series: [ChartSeries!]
+  rows: JSON
+}
+
+type Dashboard {
+  workspace: Workspace!
+  generatedAt: DateTime!
+  freshnessSeconds: Int!
+  widgets: [DashboardWidget!]!
+}
+
+input DashboardInput {
+  workspace: Workspace
+  period: DateRangeInput
+  locationIds: [ID!]
+}
+
+enum SearchEntityType {
+  INDENT
+  PRODUCT
+  VENDOR
+  PURCHASE_ORDER
+  GRN
+  STN
+  USER
+  DOCUMENT
+  INVENTORY
+  MPP
+  ADVANCE_SALE
+}
+
+type SearchHit {
+  entityType: SearchEntityType!
+  id: ID!
+  title: String!
+  subtitle: String
+  number: String
+  status: String
+  link: String!
+  score: Float!
+}
+
+type SearchResult {
+  hits: [SearchHit!]!
+  tookMs: Int!
+}
+
+enum ExportFormat {
+  CSV
+  XLSX
+  PDF
+}
+
+enum ExportStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  EXPIRED
+}
+
+type ExportJob implements Node {
+  id: ID!
+  reportKey: String!
+  format: ExportFormat!
+  status: ExportStatus!
+  rowCount: Int
+  document: Document
+  requestedAt: DateTime!
+  completedAt: DateTime
+  expiresAt: DateTime
+}
+
+input RequestExportInput {
+  reportKey: String!
+  format: ExportFormat!
+  "Filter object of the corresponding list (validated per reportKey)."
+  filters: JSON
+  columns: [String!]
+  idempotencyKey: UUID
+}
+
+type ExportPayload {
+  job: ExportJob
+  "Present when the export was small enough to complete synchronously."
+  document: Document
+  userErrors: [UserError!]!
+}
+
+type SavedFilter implements Node {
+  id: ID!
+  listKey: String!
+  name: String!
+  filters: JSON!
+  columns: [String!]
+  isDefault: Boolean!
+}
+
+input SaveFilterInput {
+  listKey: String!
+  name: String!
+  filters: JSON!
+  columns: [String!]
+  isDefault: Boolean = false
+}
+
+# ---------------------------------------------------------------------------
+# Admin & configuration
+# ---------------------------------------------------------------------------
+
+type Setting {
+  key: String!
+  value: JSON!
+  scope: String!
+  description: String
+  updatedAt: DateTime
+  updatedBy: UserRef
+}
+
+type NumberSeries implements Node {
+  id: ID!
+  docType: String!
+  location: Location
+  fiscalYear: String
+  prefix: String!
+  padding: Int!
+  nextValue: Int!
+  resetPolicy: String!
+  preview: String!
+}
+
+type FeatureFlag {
+  key: String!
+  enabled: Boolean!
+  rules: JSON
+  description: String
+}
+
+input CreateUserInput {
+  email: EmailAddress!
+  displayName: String!
+  mobile: PhoneNumber
+  employeeCode: String
+  designationId: ID
+  departmentId: ID
+  primaryLocationId: ID!
+  additionalLocationIds: [ID!]
+  deliveryPointCode: String
+  preferredLocale: Locale = EN
+  reportsToId: ID
+  roles: [RoleAssignmentInput!]!
+  sendInvite: Boolean = true
+}
+
+input UpdateUserInput {
+  id: ID!
+  expectedVersion: Int!
+  displayName: String
+  mobile: PhoneNumber
+  employeeCode: String
+  designationId: ID
+  departmentId: ID
+  primaryLocationId: ID
+  additionalLocationIds: [ID!]
+  deliveryPointCode: String
+  preferredLocale: Locale
+  reportsToId: ID
+  status: UserStatus
+}
+
+input RoleAssignmentInput {
+  roleId: ID!
+  scopeLocationIds: [ID!]
+  scopeDepartmentIds: [ID!]
+  scopeCategoryIds: [ID!]
+  validFrom: Date
+  validTo: Date
+}
+
+input SetUserRolesInput {
+  userId: ID!
+  expectedVersion: Int!
+  roles: [RoleAssignmentInput!]!
+}
+
+input SaveRoleInput {
+  id: ID
+  code: String!
+  name: String!
+  description: String
+  permissions: [String!]!
+}
+
+type UserPayload {
+  user: User
+  userErrors: [UserError!]!
+}
+
+type RolePayload {
+  role: Role
+  userErrors: [UserError!]!
+}
+
+input SaveProductInput {
+  id: ID
+  expectedVersion: Int
+  code: String!
+  name: String!
+  nameHi: String
+  sizeLabel: String
+  baseUomId: ID!
+  categoryId: ID
+  materialType: String
+  hsnCode: String
+  standardPrice: Decimal
+  isStockItem: Boolean!
+  isService: Boolean!
+  batchTracked: Boolean = false
+  serialTracked: Boolean = false
+  reorderLevel: Decimal
+  ownerUserId: ID
+  externalCodes: [ExternalProductCodeInput!]
+  status: ProductStatus = ACTIVE
+}
+
+input ExternalProductCodeInput {
+  system: String!
+  code: String
+  name: String!
+  isPrimary: Boolean = true
+}
+
+type ProductPayload {
+  product: Product
+  userErrors: [UserError!]!
+}
+
+input SaveVendorInput {
+  id: ID
+  expectedVersion: Int
+  code: String
+  name: String!
+  legalName: String
+  gstin: String
+  pan: String
+  sapVendorCode: String
+  paymentTermsDays: Int
+  address: String
+  contacts: [VendorContactInput!]!
+  status: VendorStatus = ACTIVE
+}
+
+input VendorContactInput {
+  id: ID
+  name: String
+  email: EmailAddress
+  phone: PhoneNumber
+  purposes: [String!]!
+}
+
+input SetVendorProductsInput {
+  vendorId: ID!
+  items: [VendorProductInput!]!
+}
+
+input VendorProductInput {
+  productId: ID!
+  priority: Int = 1
+  isPrimary: Boolean = false
+  leadTimeDays: Int
+}
+
+type VendorPayload {
+  vendor: Vendor
+  userErrors: [UserError!]!
+}
+
+input SaveMppInput {
+  id: ID
+  expectedVersion: Int
+  code: String!
+  name: String!
+  bmcLocationId: ID!
+  sahayakName: String
+  sahayakMobile: PhoneNumber
+  cycleBand: CycleBand
+  village: String
+  status: MppStatus = ACTIVE
+}
+
+type MppPayload {
+  mpp: Mpp
+  userErrors: [UserError!]!
+}
+
+input SaveLocationInput {
+  id: ID
+  code: String!
+  name: String!
+  nameHi: String
+  type: LocationType!
+  sapPlantCode: String
+  address: String
+  excludedFromCrossView: Boolean = false
+  active: Boolean = true
+}
+
+type LocationPayload {
+  location: Location
+  userErrors: [UserError!]!
+}
+
+input UpdateSettingInput {
+  key: String!
+  value: JSON!
+  scope: String = "ORGANIZATION"
+}
+
+type SettingPayload {
+  setting: Setting
+  userErrors: [UserError!]!
+}
+
+input UpdateNumberSeriesInput {
+  id: ID!
+  prefix: String
+  padding: Int
+  "May only move forward."
+  nextValue: Int
+  resetPolicy: String
+}
+
+type NumberSeriesPayload {
+  series: NumberSeries
+  userErrors: [UserError!]!
+}
+
+input SetFeatureFlagInput {
+  key: String!
+  enabled: Boolean!
+  rules: JSON
+}
+
+type SystemHealth {
+  status: String!
+  components: [ComponentHealth!]!
+  queueDepths: [QueueDepth!]!
+  deadLetterCount: Int!
+}
+
+type ComponentHealth {
+  name: String!
+  status: String!
+  latencyMs: Int
+  detail: String
+}
+
+type QueueDepth {
+  queue: String!
+  waiting: Int!
+  active: Int!
+  failed: Int!
+  oldestJobAgeSeconds: Int
+}
+
+# ---------------------------------------------------------------------------
+# Offline sync
+# ---------------------------------------------------------------------------
+
+input SyncPullInput {
+  "Opaque server cursor from the previous pull; null for initial sync."
+  cursor: String
+  entities: [SyncEntity!]!
+  locationIds: [ID!]
+}
+
+enum SyncEntity {
+  PRODUCTS
+  UOMS
+  VENDORS
+  MPPS
+  LOCATIONS
+  CYCLES
+  STOCK_BALANCES
+  MY_INDENTS
+  MY_TASKS
+  OPEN_POS_FOR_MY_LOCATION
+  OPEN_STNS_FOR_MY_LOCATION
+  MY_ADVANCE_SALES
+  NOTIFICATIONS
+}
+
+type SyncPullResult {
+  cursor: String!
+  hasMore: Boolean!
+  serverTime: DateTime!
+  changes: [SyncChange!]!
+}
+
+type SyncChange {
+  entity: SyncEntity!
+  id: ID!
+  op: SyncOp!
+  version: Int!
+  data: JSON
+}
+
+enum SyncOp {
+  UPSERT
+  DELETE
+}
+
+# ---------------------------------------------------------------------------
+# Real-time events
+# ---------------------------------------------------------------------------
+
+type IndentStatusEvent {
+  indentId: ID!
+  indentNumber: String
+  previousStatus: IndentStatus
+  status: IndentStatus!
+  lineChanges: [IndentLineStatusChange!]!
+  actor: UserRef
+  occurredAt: DateTime!
+}
+
+type IndentLineStatusChange {
+  lineId: ID!
+  previousStatus: IndentLineStatus
+  status: IndentLineStatus!
+}
+
+type ApprovalTaskEvent {
+  task: ApprovalTask!
+  change: String!
+  occurredAt: DateTime!
+}
+
+type InventoryEvent {
+  warehouseId: ID!
+  locationId: ID!
+  productId: ID!
+  movementType: MovementType!
+  quantityDelta: Decimal!
+  available: Decimal!
+  sourceNumber: String
+  occurredAt: DateTime!
+}
+
+type DocumentEvent {
+  entityType: String!
+  entityId: ID!
+  documentId: ID!
+  status: String!
+  occurredAt: DateTime!
+}
+
+type ShipmentEvent {
+  stnId: ID!
+  stnNumber: String!
+  status: StnStatus!
+  occurredAt: DateTime!
+}
+
+type ImportProgressEvent {
+  batchId: ID!
+  status: ImportStatus!
+  progressPct: Float!
+  processedRows: Int!
+  failedRows: Int!
+}
+
+type ExportProgressEvent {
+  jobId: ID!
+  status: ExportStatus!
+}
+
+type DeliveryStatusEvent {
+  deliveryId: ID!
+  subjectType: String
+  subjectId: ID
+  status: DeliveryStatus!
+  occurredAt: DateTime!
+}
+
+
+# ---------------------------------------------------------------------------
+# Sale & Stock Report (SSR-001…024) — per-cycle statement, live-confirmed columns
+# ---------------------------------------------------------------------------
+
+enum StockStatementStatus {
+  OPEN
+  FINALIZED
+}
+
+enum StockReportColumn {
+  OPENING
+  RECEIVED_NDS_OTHER
+  RECEIVED_MCC_BMC
+  TRANSFER
+  MPP_SALE
+  TRANSPORTER_DEDUCTION
+  DAMAGE
+  EXPIRE
+  REMARK
+}
+
+type ReportProduct {
+  product: Product!
+  displayName: String!
+  position: Int!
+  "Base products (the fixed 35) cannot be removed."
+  isBase: Boolean!
+  "Empty = all locations."
+  locations: [Location!]!
+}
+
+type StockStatementRow {
+  id: ID!
+  product: Product!
+  productDisplayName: String!
+  openingBalance: Int!
+  receivedNdsOther: Int!
+  receivedMccBmc: Int!
+  "Stock sent out; always <= 0."
+  transfer: Int!
+  mppSale: Int!
+  transporterDeduction: Int!
+  damage: Int!
+  expire: Int!
+  "Opening + received + receivedMcc - |transfer| - mppSale - transporter - damage - expire."
+  closingBalance: Int!
+  remark: String
+}
+
+type StockReportTotals {
+  openingBalance: Int!
+  receivedNdsOther: Int!
+  receivedMccBmc: Int!
+  transfer: Int!
+  mppSale: Int!
+  transporterDeduction: Int!
+  damage: Int!
+  expire: Int!
+  closingBalance: Int!
+}
+
+type StockReportLocationGroup {
+  location: Location!
+  "Columns the location's users may fill."
+  openColumns: [StockReportColumn!]!
+  "Columns the CALLER may edit now (depends on role, open columns and status)."
+  editableColumns: [StockReportColumn!]!
+  rows: [StockStatementRow!]!
+  totals: StockReportTotals!
+}
+
+type UnmatchedSaleRow {
+  plant: String
+  mccName: String
+  mppCode: String
+  mppName: String
+  materialCode: String
+  materialDescription: String
+  quantity: Int!
+}
+
+type StockStatement implements Node {
+  id: ID!
+  cycle: PaymentCycle!
+  status: StockStatementStatus!
+  isManualOverride: Boolean!
+  overrideUploadedAt: DateTime
+  generatedAt: DateTime
+  saleUploadedAt: DateTime
+  finalizedAt: DateTime
+  saleFile: Document
+  saleRowsTotal: Int!
+  saleRowsMatched: Int!
+  saleRowsUnmatched: Int!
+  monthLocked: Boolean!
+  monthLockReason: String
+  groups: [StockReportLocationGroup!]!
+  "Company-wide; empty for Cluster MIS and location users."
+  unmatchedSaleRows(first: Int = 500): [UnmatchedSaleRow!]!
+}
+
+input SaleStockReportInput {
+  cycleId: ID!
+  "Admin only; location users and Cluster MIS are scoped automatically."
+  locationIds: [ID!]
+}
+
+input StockStatementRowEdit {
+  rowId: ID!
+  openingBalance: Int
+  receivedNdsOther: Int
+  receivedMccBmc: Int
+  transfer: Int
+  mppSale: Int
+  transporterDeduction: Int
+  damage: Int
+  expire: Int
+  remark: String
+}
+
+input SaveStockStatementRowsInput {
+  cycleId: ID!
+  locationId: ID!
+  rows: [StockStatementRowEdit!]!
+  "Mandatory when an admin changes an inventory-derived column (audit, L-37)."
+  reason: String
+  idempotencyKey: UUID
+}
+
+input SetStockReportOpenColumnsInput {
+  cycleId: ID!
+  "Omit for all locations."
+  locationId: ID
+  columns: [StockReportColumn!]!
+}
+
+input SetMonthLockInput {
+  cycleMonthId: ID!
+  locked: Boolean!
+  reason: String
+}
+
+input UpsertReportProductInput {
+  productId: ID!
+  displayName: String
+  position: Int
+  "Empty/omitted = all locations."
+  locationIds: [ID!]
+}
+
+type StockStatementPayload {
+  statement: StockStatement
+  message: String
+  userErrors: [UserError!]!
+}
+
+# ---------------------------------------------------------------------------
+# Live-confirmed inventory operations (INV-013/014) and STN draft/post (STN-012…016)
+# ---------------------------------------------------------------------------
+
+enum StockConditionAction {
+  MARK_EXPIRED
+  MARK_DAMAGED
+  DISPOSE
+}
+
+enum StockConditionBucket {
+  GOOD
+  EXPIRED
+  DAMAGED
+}
+
+input ChangeStockConditionInput {
+  idempotencyKey: UUID!
+  locationId: ID!
+  productId: ID!
+  action: StockConditionAction!
+  quantity: Int!
+  "DISPOSE only."
+  sourceBucket: StockConditionBucket
+  "DISPOSE only; mandatory photo proof."
+  proofDocumentId: ID
+  notes: String
+}
+
+input PhysicalCountInput {
+  productId: ID!
+  "Null clears the count."
+  physicalQuantity: Int
+}
+
+input SavePhysicalCountInput {
+  locationId: ID!
+  items: [PhysicalCountInput!]!
+}
+
+type PhysicalCount {
+  product: Product!
+  bookQuantity: Decimal!
+  physicalQuantity: Int
+  variance: Decimal
+  countedAt: DateTime
+}
+
+input PostStnInput {
+  id: ID!
+  expectedVersion: Int!
+  idempotencyKey: UUID!
+}
+
+input SapOrderGenerateInput {
+  "Uploaded zone-demand sheets."
+  documentIds: [ID!]!
+  idempotencyKey: UUID
+}
+
+type SapOrderGeneration {
+  zip: Document!
+  rowsWritten: Int!
+  rowsSkipped: Int!
+  unmappedMaterials: [String!]!
+}
+
+type SapMaterialMapping {
+  id: ID!
+  product: Product
+  sapMaterialCode: String!
+  sapMaterialName: String
+  categoryCode: String
+}
+
+input SaveSapMaterialMappingInput {
+  id: ID
+  productId: ID!
+  sapMaterialCode: String!
+  sapMaterialName: String
+  categoryCode: String
+}
+
+type OtherSale implements Node {
+  id: ID!
+  saleNumber: String!
+  invoiceNumber: String!
+  partyName: String!
+  partyAddress: String
+  pod: Pod
+  location: Location!
+  lines: [AdvanceSaleLine!]!
+  invoice: Document
+  createdAt: DateTime!
+}
+
+input CreateOtherSaleInput {
+  idempotencyKey: UUID!
+  locationId: ID!
+  partyName: String!
+  partyAddress: String
+  partyGstin: String
+  lines: [OtherSaleLineInput!]!
+}
+
+input OtherSaleLineInput {
+  productId: ID!
+  quantity: Decimal!
+  uomId: ID!
+  unitPrice: Decimal!
+}
+
+type OtherSalePayload {
+  otherSale: OtherSale
+  userErrors: [UserError!]!
+}
+
+# ---------------------------------------------------------------------------
+# Root operations
+# ---------------------------------------------------------------------------
+
+type Query {
+  node(id: ID!): Node
+  me: User!
+  mySessions: [Session!]!
+  dashboard(input: DashboardInput): Dashboard! @auth(requires: "report:read_store")
+  search(query: String!, types: [SearchEntityType!], limit: Int = 20): SearchResult!
+
+  # Identity & org
+  users(filter: UserFilter, pagination: PaginationInput): UserConnection! @auth(requires: "admin:user_manage")
+  user(id: ID!): User @auth(requires: "admin:user_manage")
+  roles: [Role!]! @auth(requires: "admin:role_manage")
+  permissionCatalogue: [String!]! @auth(requires: "admin:role_manage")
+  locations(includeInactive: Boolean = false): [Location!]!
+  departments: [Department!]!
+  designations: [Designation!]!
+
+  # Catalogue
+  products(filter: ProductFilter, sort: ProductSort, pagination: PaginationInput): ProductConnection! @auth(requires: "product:read")
+  product(id: ID!): Product @auth(requires: "product:read")
+  productByCode(code: String!, system: String): Product @auth(requires: "product:read")
+  uoms: [Uom!]!
+  productCategories: [ProductCategory!]!
+  vendors(filter: VendorFilter, pagination: PaginationInput): VendorConnection! @auth(requires: "vendor:read")
+  vendor(id: ID!): Vendor @auth(requires: "vendor:read")
+  mpps(filter: MppFilter, pagination: PaginationInput): MppConnection! @auth(requires: "mpp:read")
+  mpp(id: ID!): Mpp @auth(requires: "mpp:read")
+
+  # Indents
+  indents(filter: IndentFilter, sort: IndentSort, pagination: PaginationInput): IndentConnection! @auth(requires: "indent:read")
+  indent(id: ID!): Indent @auth(requires: "indent:read")
+  indentByNumber(indentNumber: String!): Indent @auth(requires: "indent:read")
+
+  # Approvals & workflow
+  approvalTasks(filter: ApprovalTaskFilter, pagination: PaginationInput): ApprovalTaskConnection! @auth(requires: "approval:act")
+  approvalTask(id: ID!): ApprovalTask @auth(requires: "approval:act")
+  myDelegations: [Delegation!]! @auth(requires: "approval:delegate")
+  workflowDefinitions: [WorkflowDefinition!]! @auth(requires: "admin:workflow_manage")
+  simulateWorkflow(input: SimulateWorkflowInput!): WorkflowSimulation! @auth(requires: "admin:workflow_manage")
+
+  # Procurement
+  procurementQueue(filter: ProcurementQueueFilter, pagination: PaginationInput): ProcurementQueueConnection! @auth(requires: "purchase_request:read")
+  purchaseOrders(filter: PurchaseOrderFilter, pagination: PaginationInput): PurchaseOrderConnection! @auth(requires: "purchase_order:read")
+  purchaseOrder(id: ID!): PurchaseOrder @auth(requires: "purchase_order:read")
+  purchaseOrderByNumber(number: String!): PurchaseOrder @auth(requires: "purchase_order:read")
+  sapPoLinesForIndentLine(indentLineId: ID!): [SapPoLine!]! @auth(requires: "sap_po:read")
+
+  # Receiving
+  grns(filter: GrnFilter, pagination: PaginationInput): GrnConnection! @auth(requires: "grn:read")
+  grn(id: ID!): Grn @auth(requires: "grn:read")
+  openPurchaseOrdersForReceipt(warehouseId: ID!, search: String): [PurchaseOrder!]! @auth(requires: "grn:create")
+
+  # Logistics
+  transferOrders(filter: TransferOrderFilter, pagination: PaginationInput): TransferOrderConnection! @auth(requires: "transfer:read")
+  transferOrder(id: ID!): TransferOrder @auth(requires: "transfer:read")
+  stns(filter: StnFilter, pagination: PaginationInput): StnConnection! @auth(requires: "transfer:read")
+  stn(id: ID!): Stn @auth(requires: "transfer:read")
+  stnByNumber(stnNumber: String!): Stn @auth(requires: "transfer:read")
+  openDiscrepancies(pagination: PaginationInput): [TransitDiscrepancy!]! @auth(requires: "transfer:resolve_discrepancy")
+
+  # Inventory
+  inventory(filter: InventoryFilter, sort: InventorySort, pagination: PaginationInput): InventoryConnection! @auth(requires: "inventory:read")
+  stockTransactions(filter: StockTransactionFilter, pagination: PaginationInput): StockTransactionConnection! @auth(requires: "inventory:read")
+  stockPeriodSummary(warehouseId: ID!, productIds: [ID!], period: DateRangeInput!): [StockPeriodSummary!]! @auth(requires: "inventory:read")
+  stockAdjustment(id: ID!): StockAdjustment @auth(requires: "inventory:read")
+  stockCount(id: ID!): StockCount @auth(requires: "inventory:count")
+
+  # MPP distribution
+  advanceSales(filter: AdvanceSaleFilter, pagination: PaginationInput): AdvanceSaleConnection! @auth(requires: "advance_sale:read")
+  advanceSale(id: ID!): AdvanceSale @auth(requires: "advance_sale:read")
+  advanceSaleByCode(saleCode: String!): AdvanceSale @auth(requires: "advance_sale:read")
+  generalSales(filter: GeneralSaleFilter, pagination: PaginationInput): GeneralSaleConnection! @auth(requires: "general_sale:read")
+
+  # Cycles & reconciliation
+  activeCycle: PaymentCycle
+  cycleMonths(year: Int): [CycleMonth!]! @auth(requires: "cycle:read")
+  saleEntries(cycleId: ID!, locationIds: [ID!], status: [SaleEntryStatus!], pagination: PaginationInput): [SaleEntry!]! @auth(requires: "reconciliation:read")
+  reconciliationSheets(filter: ReconciliationSheetFilter, pagination: PaginationInput): ReconciliationSheetConnection! @auth(requires: "reconciliation:read")
+  reconciliationSheet(id: ID!): ReconciliationSheet @auth(requires: "reconciliation:read")
+  myLocationReconciliation(cycleId: ID, pagination: PaginationInput): ReconciliationRecordConnection! @auth(requires: "reconciliation:read_location")
+  mppLedger(filter: MppLedgerFilter, pagination: PaginationInput): MppLedgerConnection! @auth(requires: "reconciliation:read_location")
+  importBatch(id: ID!): ImportBatch
+
+  # Finance
+  invoices(filter: InvoiceFilter, pagination: PaginationInput): InvoiceConnection! @auth(requires: "invoice:read")
+  invoice(id: ID!): Invoice @auth(requires: "invoice:read")
+
+  # Documents
+  documents(filter: DocumentFilter, pagination: PaginationInput): DocumentConnection! @auth(requires: "finance_document:read")
+  document(id: ID!): Document
+
+  # Notifications
+  notifications(filter: NotificationFilter, pagination: PaginationInput): NotificationConnection!
+  notificationPreferences: [NotificationPreference!]!
+  notificationDeliveries(filter: NotificationDeliveryFilter, pagination: PaginationInput): NotificationDeliveryConnection! @auth(requires: "notification:read_delivery_logs")
+  notificationTemplates(code: String): [NotificationTemplate!]! @auth(requires: "notification:manage_templates")
+  messagingAnalytics(period: DateRangeInput, channel: NotificationChannel): MessagingAnalytics! @auth(requires: "notification:read_delivery_logs")
+
+  # Reports & exports
+  exportJob(id: ID!): ExportJob
+  savedFilters(listKey: String!): [SavedFilter!]!
+
+  # Audit & admin
+  auditLog(filter: AuditFilter, pagination: PaginationInput): AuditEntryConnection! @auth(requires: "audit:read")
+  settings(keys: [String!]): [Setting!]! @auth(requires: "admin:settings_manage")
+  numberSeries: [NumberSeries!]! @auth(requires: "admin:number_series_manage")
+  featureFlags: [FeatureFlag!]!
+  systemHealth: SystemHealth! @auth(requires: "report:read_admin")
+
+  # Sale & Stock Report (scoped: admin all, store own location, Cluster MIS zone)
+  saleStockReport(input: SaleStockReportInput!): StockStatement @auth(requires: "inventory:read")
+  reportProducts: [ReportProduct!]! @auth(requires: "inventory:read")
+  physicalCounts(locationId: ID!): [PhysicalCount!]! @auth(requires: "inventory:read")
+  otherSales(locationIds: [ID!], pagination: PaginationInput): [OtherSale!]! @auth(requires: "advance_sale:read")
+  sapMaterialMappings: [SapMaterialMapping!]! @auth(requires: "sap_po:read")
+
+  # Offline sync
+  syncPull(input: SyncPullInput!): SyncPullResult!
+}
+
+type Mutation {
+  # Indents
+  createIndent(input: CreateIndentInput!): IndentPayload! @auth(requires: "indent:create") @idempotent
+  updateIndent(input: UpdateIndentInput!): IndentPayload! @auth(requires: "indent:update")
+  submitIndent(input: SubmitIndentInput!): IndentPayload! @auth(requires: "indent:submit") @idempotent
+  cancelIndent(input: CancelIndentInput!): IndentPayload! @auth(requires: "indent:cancel")
+  deleteIndentDraft(id: ID!): DeletePayload! @auth(requires: "indent:delete_draft")
+  copyIndent(id: ID!): IndentPayload! @auth(requires: "indent:create")
+
+  # Approvals
+  approveIndent(input: ApproveIndentInput!): ApprovalPayload! @auth(requires: "approval:act") @idempotent
+  approveIndentForTransfer(input: ApproveIndentForTransferInput!): ApprovalPayload! @auth(requires: "approval:act") @idempotent
+  rejectIndent(input: RejectIndentInput!): ApprovalPayload! @auth(requires: "approval:act") @idempotent
+  returnIndent(input: ReturnIndentInput!): ApprovalPayload! @auth(requires: "approval:act") @idempotent
+  bulkApprovalAction(input: BulkApprovalInput!): BulkApprovalPayload! @auth(requires: "approval:act") @idempotent
+  createDelegation(input: CreateDelegationInput!): DelegationPayload! @auth(requires: "approval:delegate")
+  revokeDelegation(id: ID!): DelegationPayload! @auth(requires: "approval:delegate")
+  reassignApprovalTask(taskId: ID!, assigneeUserId: ID!, reason: String!): ApprovalPayload! @auth(requires: "approval:reassign")
+  saveWorkflowDraft(input: SaveWorkflowDraftInput!): WorkflowVersionPayload! @auth(requires: "admin:workflow_manage")
+  publishWorkflowVersion(versionId: ID!): WorkflowVersionPayload! @auth(requires: "admin:workflow_manage")
+
+  # Procurement
+  createPurchaseOrder(input: CreatePurchaseOrderInput!): PurchaseOrderPayload! @auth(requires: "purchase_order:create") @idempotent
+  updatePurchaseOrder(input: UpdatePurchaseOrderInput!): PurchaseOrderPayload! @auth(requires: "purchase_order:update")
+  submitPurchaseOrder(input: SubmitPurchaseOrderInput!): PurchaseOrderPayload! @auth(requires: "purchase_order:create") @idempotent
+  decidePurchaseOrder(input: ApprovePurchaseOrderInput!): PurchaseOrderPayload! @auth(requires: "purchase_order:approve") @idempotent
+  sendPurchaseOrder(input: SendPurchaseOrderInput!): PurchaseOrderPayload! @auth(requires: "purchase_order:send") @idempotent
+  cancelPurchaseOrder(input: CancelPurchaseOrderInput!): PurchaseOrderPayload! @auth(requires: "purchase_order:cancel")
+  shortClosePurchaseOrder(input: ShortClosePurchaseOrderInput!): PurchaseOrderPayload! @auth(requires: "purchase_order:close")
+
+  # Receiving
+  createGrn(input: CreateGrnInput!): GrnPayload! @auth(requires: "grn:create") @idempotent
+  postGrn(input: PostGrnInput!): GrnPayload! @auth(requires: "grn:create") @idempotent
+  cancelGrn(input: CancelGrnInput!): GrnPayload! @auth(requires: "grn:cancel")
+  reverseGrn(input: ReverseGrnInput!): GrnPayload! @auth(requires: "grn:reverse") @idempotent
+  verifyGrn(input: VerifyGrnInput!): GrnPayload! @auth(requires: "invoice:verify")
+
+  # Logistics
+  createTransferOrder(input: CreateTransferOrderInput!): TransferOrderPayload! @auth(requires: "transfer:create") @idempotent
+  cancelTransferOrder(id: ID!, reason: String!): TransferOrderPayload! @auth(requires: "transfer:cancel")
+  createStn(input: CreateStnInput!): StnPayload! @auth(requires: "transfer:plan") @idempotent
+  dispatchStn(input: DispatchStnInput!): StnPayload! @auth(requires: "transfer:dispatch") @idempotent
+  receiveStn(input: ReceiveStnInput!): StnPayload! @auth(requires: "transfer:receive") @idempotent
+  resolveTransitDiscrepancy(input: ResolveDiscrepancyInput!): DiscrepancyPayload! @auth(requires: "transfer:resolve_discrepancy") @idempotent
+
+  # Inventory
+  requestStockAdjustment(input: RequestStockAdjustmentInput!): StockAdjustmentPayload! @auth(requires: "inventory:adjust_request") @idempotent
+  decideStockAdjustment(input: DecideStockAdjustmentInput!): StockAdjustmentPayload! @auth(requires: "inventory:adjust_approve") @idempotent
+  startStockCount(input: StartStockCountInput!): StockCountPayload! @auth(requires: "inventory:count")
+  recordStockCount(input: RecordStockCountInput!): StockCountPayload! @auth(requires: "inventory:count") @idempotent
+  submitStockCount(countId: ID!): StockCountPayload! @auth(requires: "inventory:count")
+
+  # MPP distribution
+  createAdvanceSale(input: CreateAdvanceSaleInput!): AdvanceSalePayload! @auth(requires: "advance_sale:create") @idempotent
+  cancelAdvanceSale(input: CancelAdvanceSaleInput!): AdvanceSalePayload! @auth(requires: "advance_sale:cancel") @idempotent
+  uploadPod(input: UploadPodInput!): PodPayload! @auth(requires: "advance_sale:upload_pod") @idempotent
+  regenerateSaleReceipt(id: ID!): AdvanceSalePayload! @auth(requires: "advance_sale:read")
+  createGeneralSale(input: CreateGeneralSaleInput!): GeneralSalePayload! @auth(requires: "general_sale:create") @idempotent
+  dispatchGeneralSale(input: DispatchGeneralSaleInput!): GeneralSalePayload! @auth(requires: "general_sale:dispatch") @idempotent
+  createOtherSale(input: CreateOtherSaleInput!): OtherSalePayload! @auth(requires: "advance_sale:create") @idempotent
+  generateStockStatement(cycleId: ID!): StockStatementPayload! @auth(requires: "inventory:adjust_approve")
+  saveStockStatementRows(input: SaveStockStatementRowsInput!): StockStatementPayload! @auth(requires: "inventory:read") @idempotent
+  setStockReportOpenColumns(input: SetStockReportOpenColumnsInput!): StockStatementPayload! @auth(requires: "inventory:adjust_approve")
+  setMonthLock(input: SetMonthLockInput!): CycleMonthPayload! @auth(requires: "cycle:close")
+  upsertReportProduct(input: UpsertReportProductInput!): [ReportProduct!]! @auth(requires: "admin:master_manage")
+  removeReportProduct(productId: ID!): [ReportProduct!]! @auth(requires: "admin:master_manage")
+  changeStockCondition(input: ChangeStockConditionInput!): Boolean! @auth(requires: "inventory:adjust_request") @idempotent
+  savePhysicalCount(input: SavePhysicalCountInput!): [PhysicalCount!]! @auth(requires: "inventory:count")
+  postStn(input: PostStnInput!): StnPayload! @auth(requires: "transfer:dispatch") @idempotent
+  deleteStnDraft(id: ID!): DeletePayload! @auth(requires: "transfer:create")
+  generateSapOrderFiles(input: SapOrderGenerateInput!): SapOrderGeneration! @auth(requires: "sap_po:import") @idempotent
+  saveSapMaterialMapping(input: SaveSapMaterialMappingInput!): SapMaterialMapping! @auth(requires: "sap_po:import")
+
+  # Cycles & reconciliation
+  createCycleMonth(input: CreateCycleMonthInput!): CycleMonthPayload! @auth(requires: "cycle:manage")
+  upsertCycle(input: UpsertCycleInput!): CyclePayload! @auth(requires: "cycle:manage")
+  deleteCycle(id: ID!): DeletePayload! @auth(requires: "cycle:manage")
+  activateCycle(id: ID!): CyclePayload! @auth(requires: "cycle:activate")
+  closeCycle(id: ID!): CyclePayload! @auth(requires: "cycle:close")
+  reopenCycle(id: ID!, reason: String!): CyclePayload! @auth(requires: "reconciliation:reopen")
+  startImport(input: StartImportInput!): ImportPayload! @idempotent
+  commitImport(input: CommitImportInput!): ImportPayload! @idempotent
+  discardImport(batchId: ID!): ImportPayload!
+  publishReconciliation(sheetId: ID!): ReconciliationPayload! @auth(requires: "reconciliation:import_post_sheet")
+  resolveReconciliationException(input: ResolveReconciliationExceptionInput!): ReconciliationPayload! @auth(requires: "reconciliation:import_post_sheet")
+  acknowledgeReconciliation(input: AcknowledgeReconciliationInput!): ReconciliationPayload! @auth(requires: "reconciliation:acknowledge")
+
+  # Finance
+  createInvoice(input: CreateInvoiceInput!): InvoicePayload! @auth(requires: "invoice:create") @idempotent
+  rematchInvoice(id: ID!): InvoicePayload! @auth(requires: "invoice:match")
+  resolveInvoiceException(input: ResolveInvoiceExceptionInput!): InvoicePayload! @auth(requires: "invoice:approve_exception")
+  recordPayment(input: RecordPaymentInput!): InvoicePayload! @auth(requires: "payment:record") @idempotent
+
+  # Documents (binary transfer via REST pre-signed URLs)
+  linkDocument(documentId: ID!, entityType: String!, entityId: ID!, role: String): Document! @auth(requires: "document:upload")
+  deleteDocument(id: ID!, reason: String!): DeletePayload! @auth(requires: "document:delete")
+
+  # Notifications
+  markNotificationsRead(ids: [ID!], all: Boolean = false): Int!
+  updateNotificationPreferences(input: [NotificationPreferenceInput!]!): [NotificationPreference!]!
+  registerPushDevice(input: RegisterPushDeviceInput!): Boolean!
+  unregisterPushDevice(token: String!): Boolean!
+  saveNotificationTemplate(input: SaveNotificationTemplateInput!): NotificationTemplatePayload! @auth(requires: "notification:manage_templates")
+  resendNotification(deliveryId: ID!): NotificationDelivery! @auth(requires: "notification:send_manual")
+  replayDeadLetter(id: ID!): Boolean! @auth(requires: "admin:integration_manage")
+
+  # Reports & exports
+  requestExport(input: RequestExportInput!): ExportPayload! @auth(requires: "report:export") @idempotent
+  saveFilter(input: SaveFilterInput!): SavedFilter!
+  deleteSavedFilter(id: ID!): DeletePayload!
+
+  # Admin
+  createUser(input: CreateUserInput!): UserPayload! @auth(requires: "admin:user_manage")
+  updateUser(input: UpdateUserInput!): UserPayload! @auth(requires: "admin:user_manage")
+  setUserRoles(input: SetUserRolesInput!): UserPayload! @auth(requires: "admin:role_manage")
+  unlockUser(id: ID!): UserPayload! @auth(requires: "admin:user_manage")
+  forcePasswordReset(id: ID!): UserPayload! @auth(requires: "admin:user_manage")
+  saveRole(input: SaveRoleInput!): RolePayload! @auth(requires: "admin:role_manage")
+  revokeSession(id: ID!): Boolean!
+  revokeAllMySessions: Int!
+  saveProduct(input: SaveProductInput!): ProductPayload! @auth(requires: "product:update")
+  saveVendor(input: SaveVendorInput!): VendorPayload! @auth(requires: "vendor:update")
+  setVendorProducts(input: SetVendorProductsInput!): VendorPayload! @auth(requires: "vendor:map_products")
+  saveMpp(input: SaveMppInput!): MppPayload! @auth(requires: "mpp:manage")
+  saveLocation(input: SaveLocationInput!): LocationPayload! @auth(requires: "admin:master_manage")
+  updateSetting(input: UpdateSettingInput!): SettingPayload! @auth(requires: "admin:settings_manage")
+  updateNumberSeries(input: UpdateNumberSeriesInput!): NumberSeriesPayload! @auth(requires: "admin:number_series_manage")
+  setFeatureFlag(input: SetFeatureFlagInput!): FeatureFlag! @auth(requires: "admin:feature_flag_manage")
+}
+
+type Subscription {
+  "Personal in-app notifications."
+  notificationReceived: Notification!
+  "Status changes for indents the caller can read (optionally a single indent)."
+  indentStatusChanged(indentId: ID): IndentStatusEvent!
+  "Approval tasks assigned to/removed from the caller."
+  approvalTaskChanged: ApprovalTaskEvent!
+  "Stock changes at locations in the caller's scope."
+  inventoryUpdated(locationIds: [ID!], productIds: [ID!]): InventoryEvent!
+  shipmentStatusChanged(stnId: ID): ShipmentEvent!
+  "Generated documents (receipts, GRN/STN PDFs) becoming ready."
+  documentReady(entityType: String!, entityId: ID!): DocumentEvent!
+  importProgress(batchId: ID!): ImportProgressEvent!
+  exportProgress(jobId: ID!): ExportProgressEvent!
+  deliveryStatusChanged(subjectType: String!, subjectId: ID!): DeliveryStatusEvent!
+}
