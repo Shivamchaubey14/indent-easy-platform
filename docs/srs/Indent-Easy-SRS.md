@@ -97,6 +97,7 @@
 | 1.0 | 2026-09-24 | Architecture Team | Full SRS baseline issued for review |
 | 1.1 | 2026-09-24 | Architecture Team | **WhatsApp removed from scope entirely (DEC-001)**; Sahayak notifications via SMS only; live v4 code-base delta added (§5.10); related requirements, APIs, events, schema, configuration, risks and open questions updated |
 | 1.2 | 2026-09-24 | Architecture Team | Live v4 `views.py`/`urls.py`/`stock_report.html` reviewed: **Sale & Stock Report specified as implemented (§5.10.2, §11.21 SSR-001…024)**; live STN draft/post/receive, stock condition buckets & physical count, sale to other, SAP order generator, POD export/compliance, indent Excel import, HOD bulk actions, Cluster MIS role; defects L-34…L-37 |
+| 1.3 | 2026-09-24 | Architecture Team | **Client state and animation stack changed (DEC-002, ADR-016):** Zustand is the client-state manager on web **and** mobile (§17.1, §17.3, §18.1); GSAP replaces Motion for web animation (§17.1, §40.5); React Native Reanimated for mobile animation because GSAP requires the DOM (§18.1) |
 
 ### 1.2 Approval / Sign-off
 
@@ -129,6 +130,7 @@ Requirement IDs use the prefixes in §11. Priorities use **Must / Should / Could
 | ID | Date | Decision | Consequence in this SRS |
 |---|---|---|---|
 | DEC-001 | 2026-09-24 | **WhatsApp is not required and is removed completely** from Indent Easy (no WhatsApp sending, templates, webhooks, analytics, registration checks, configuration or data migration). | The notification channels are in-app, push, e-mail and SMS. Sahayak (MPP) notifications use SMS (plus the printed/downloadable receipt). All legacy WhatsApp code, logs, scripts, scheduled tasks and credentials are retired and not migrated (§5.3.6, §52.3, Appendix B). The legacy WhatsApp access token must still be revoked (OQ-004). |
+| DEC-002 | 2026-09-24 | **Zustand for client state management and GSAP for animations.** | Zustand owns all client-side state on web and mobile (session, UI, workspace, drafts, sync status); server data stays in the TanStack Query cache and is never copied into stores. GSAP (`gsap` + `@gsap/react`) replaces Motion on the web. GSAP does not run in React Native, so the mobile app uses React Native Reanimated with the same motion tokens (§40.5). Recorded as ADR-016. |
 
 ### 1.5 Glossary
 
@@ -1729,6 +1731,7 @@ flowchart TB
 | Backend style | Modular monolith, DDD modules, hexagonal adapters | ADR-013 |
 | GraphQL server | GraphQL Yoga on Express, schema-first with GraphQL Code Generator | ADR-014 |
 | Data access | Drizzle ORM + SQL for concurrency-critical paths; migrations via drizzle-kit reviewed SQL | ADR-015 |
+| Client state & animation | Zustand for client state (web + mobile); GSAP for web animation; Reanimated on mobile | ADR-016 |
 
 ---
 
@@ -1814,10 +1817,10 @@ flowchart LR
 | Components | Radix UI primitives (headless, accessible) wrapped in `packages/ui` | WCAG-compliant dialogs, menus, popovers |
 | Tables | TanStack Table + TanStack Virtual | Column selection, sorting, virtualisation for ≥ 200 rows |
 | Charts | Apache ECharts (canvas, accessible aria description) or Recharts for simple charts — one library chosen at Phase 0 (OQ-031) | Dashboards |
-| Motion | Motion (formerly Framer Motion) with `prefers-reduced-motion` respect | Subtle transitions |
+| Animation | GSAP (`gsap` core + `@gsap/react` `useGSAP` hook for scoped, auto-cleaned animations); `gsap.matchMedia()` gates every animation on `prefers-reduced-motion`; plugins imported per route, never globally (DEC-002, ADR-016) | Timeline control for drawers, realtime row highlights and dashboard transitions; framework-agnostic |
 | i18n | i18next + ICU MessageFormat; `Intl` for numbers/dates | EN/HI |
 | Command palette | `cmdk` | Global search & actions |
-| Client state | Zustand (UI-only state: sidebar, workspace, drafts) | Minimal |
+| Client state | Zustand (DEC-002): auth session (in-memory access token, current user & scopes), UI state (sidebar, theme, locale, active workspace), unsaved form drafts, realtime connection status. One store per concern, created with typed slices; `persist` middleware only for non-sensitive preferences. **Server data is never copied into Zustand** — it lives in the TanStack Query cache | Small, hook-based, no provider boilerplate; clear split between client and server state |
 | Error tracking | Sentry browser SDK with PII scrubbing | |
 | Testing | Vitest + React Testing Library + MSW; Playwright E2E | |
 
@@ -1861,7 +1864,7 @@ apps/web/src/
   graphql/            # codegen output (generated, not edited)
   i18n/               # en/, hi/ namespaces JSON
   lib/                # http, auth, telemetry, formatting (Intl wrappers)
-  stores/             # zustand stores (UI state only)
+  stores/             # zustand stores: session, ui, drafts, realtime (client state only; never server data)
 ```
 
 **Rules (enforced by ESLint boundaries plugin):** routes import features; features import `components`, `lib`, `packages/*`, never another feature's internals; no business rules in components (they live in `model/` or on the server); every server call goes through generated hooks (no ad-hoc `fetch`).
@@ -1888,6 +1891,8 @@ apps/web/src/
 | Navigation | Expo Router (file-based) |
 | Local DB | `expo-sqlite` with Drizzle ORM (typed schema + migrations) |
 | Server state | TanStack Query with persistence to SQLite/MMKV for read caches |
+| Client state | Zustand (DEC-002): session/unlock state, UI preferences, draft forms, sync-engine status (queue length, last sync, conflicts); `persist` middleware backed by MMKV for preferences only — tokens stay in `expo-secure-store`, queued mutations stay in SQLite |
+| Animation | React Native Reanimated (UI-thread animations) with the shared motion tokens from `packages/design-tokens`; GSAP is not used on mobile because it requires the browser DOM (ADR-016) |
 | Sync | Custom sync engine (outbox of mutations + delta pull) — §36 |
 | Secure storage | `expo-secure-store` (refresh token, DB encryption key) |
 | DB encryption | SQLCipher-enabled SQLite build (config plugin) — Should; TBD device policy (OQ-014) |
@@ -3815,7 +3820,7 @@ Candidates evaluated: DM Sans, Public Sans, Geist Sans, Figtree, Manrope, IBM-li
 | Empty states | Explain why empty + primary next action |
 | Error states | Human message + request ID + retry; no stack traces |
 
-### 40.5 Motion (Motion library)
+### 40.5 Motion (GSAP on web, Reanimated on mobile)
 
 | Use | Spec |
 |---|---|
@@ -3824,6 +3829,9 @@ Candidates evaluated: DM Sans, Public Sans, Geist Sans, Figtree, Manrope, IBM-li
 | Page transitions | none (instant) except mobile stack navigation defaults |
 | Skeletons | shimmer disabled under `prefers-reduced-motion`; replaced by static placeholder |
 | Rule | All motion respects `prefers-reduced-motion: reduce` (durations → 0, no parallax) |
+| Implementation (web) | GSAP via `useGSAP()` scoped to the component ref (automatic cleanup on unmount); durations and eases read from motion tokens (`motion.duration.enter`, `motion.ease.out`), never literals; reduced-motion handled once with `gsap.matchMedia()`; no animation of layout properties (width/height/top) — transforms and opacity only |
+| Implementation (mobile) | Reanimated shared values and `withTiming` using the same motion tokens; `useReducedMotion()` respected |
+| Budget | GSAP core loaded with the app shell (counts toward the 250 KB initial JS budget, §17.4); plugins (e.g. Flip for list reorders) lazy-loaded by the routes that use them |
 
 ### 40.6 Mobile UX Specifics
 
@@ -4886,6 +4894,15 @@ Each ADR: **Context · Decision · Alternatives · Reasons · Trade-offs · Cons
 - **Reasons:** Thin abstraction close to SQL; supports advanced PostgreSQL features; good TS inference.
 - **Trade-offs:** Fewer high-level conveniences than Prisma.
 - **Consequences:** SQL review in PRs for migrations and critical queries.
+
+#### ADR-016 Zustand for client state; GSAP for web animation (DEC-002)
+
+- **Context:** The web and mobile apps hold client-only state (session, preferences, drafts, sync status) alongside server data. The original proposal used Zustand for web UI state only and Motion for animation. The business asked for Zustand as the state manager and GSAP for animation.
+- **Decision:** Zustand is the single client-state library on web and mobile. TanStack Query stays the only store for server data. GSAP (`gsap` + `@gsap/react`) is the web animation library. React Native Reanimated is used on mobile, sharing motion tokens with the web.
+- **Alternatives:** Redux Toolkit (more ceremony, and RTK Query would duplicate TanStack Query); Jotai; React context. Motion (Framer Motion) or CSS-only transitions for animation.
+- **Reasons:** Zustand is small, needs no provider, has typed slices and `persist` middleware, and works the same way in React DOM and React Native. GSAP gives precise timeline control, is framework-agnostic and free for commercial use including plugins, and `useGSAP` handles cleanup under React Strict Mode.
+- **Trade-offs:** GSAP does not run in React Native, so there are two animation implementations; motion tokens keep them visually consistent. Zustand stores can drift into caching server data, so a lint and review rule forbids that.
+- **Consequences:** `packages/design-tokens` exports motion tokens (durations, eases) consumed by both GSAP and Reanimated. The web bundle includes GSAP core (≈ 25–30 KB gzip), and plugins are loaded per route.
 
 ### Appendix B — Legacy Feature Traceability Matrix
 
