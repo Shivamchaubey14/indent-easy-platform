@@ -10,13 +10,15 @@ services:
       POSTGRES_DB: indent_easy
       POSTGRES_USER: ie
       POSTGRES_PASSWORD: ie_local_only
+      IE_APP_PASSWORD: ie_app_local_only
       TZ: Asia/Kolkata
     ports:
       - '5432:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
-      # Applied once, on first start of an empty volume. `pnpm db:reset` wipes and re-applies.
-      - ../../database/migrations:/docker-entrypoint-initdb.d:ro
+      # Runs once on an empty volume: gives the app role a login. Schema changes are applied by
+      # `pnpm db:migrate`, the same way as in DEV/QA/PROD.
+      - ../../database/init:/docker-entrypoint-initdb.d:ro
       - ../../database/checks:/checks:ro
       - ../../database/seeds:/seeds:ro
     healthcheck:
