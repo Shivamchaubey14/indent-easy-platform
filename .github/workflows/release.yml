@@ -15,7 +15,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  IMAGE_REPO: ghcr.io/shivamchaubey14/indent-easy-api
+  REGISTRY: ghcr.io/shivamchaubey14
+  IMAGES: api web
 
 jobs:
   qa:
@@ -45,10 +46,16 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
-          source="$IMAGE_REPO:sha-${GITHUB_SHA::7}"
-          docker buildx imagetools inspect "$source" >/dev/null \
-            || { echo "::error::no image $source; did CI pass on dev for this commit?"; exit 1; }
-          docker buildx imagetools create --tag "$IMAGE_REPO:$GITHUB_REF_NAME" --tag "$IMAGE_REPO:qa" "$source"
+          # Check every image exists before moving any tag, so QA never gets half a release.
+          for image in $IMAGES; do
+            source="$REGISTRY/indent-easy-$image:sha-${GITHUB_SHA::7}"
+            docker buildx imagetools inspect "$source" >/dev/null \
+              || { echo "::error::no image $source; did CI pass on dev for this commit?"; exit 1; }
+          done
+          for image in $IMAGES; do
+            repo="$REGISTRY/indent-easy-$image"
+            docker buildx imagetools create --tag "$repo:$GITHUB_REF_NAME" --tag "$repo:qa" "$repo:sha-${GITHUB_SHA::7}"
+          done
           echo "::notice::QA will deploy $GITHUB_REF_NAME (sha-${GITHUB_SHA::7}) within about two minutes"
 
   production:
@@ -92,7 +99,12 @@ jobs:
           RC: ${{ steps.rc.outputs.name }}
         run: |
           echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
-          docker buildx imagetools inspect "$IMAGE_REPO:$RC" >/dev/null \
-            || { echo "::error::no image $IMAGE_REPO:$RC"; exit 1; }
-          docker buildx imagetools create --tag "$IMAGE_REPO:$GITHUB_REF_NAME" --tag "$IMAGE_REPO:prod" "$IMAGE_REPO:$RC"
+          for image in $IMAGES; do
+            docker buildx imagetools inspect "$REGISTRY/indent-easy-$image:$RC" >/dev/null \
+              || { echo "::error::no image $REGISTRY/indent-easy-$image:$RC"; exit 1; }
+          done
+          for image in $IMAGES; do
+            repo="$REGISTRY/indent-easy-$image"
+            docker buildx imagetools create --tag "$repo:$GITHUB_REF_NAME" --tag "$repo:prod" "$repo:$RC"
+          done
           echo "::notice::PROD will deploy $GITHUB_REF_NAME (the image QA tested as $RC) within about two minutes"
