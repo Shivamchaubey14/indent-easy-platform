@@ -31,7 +31,9 @@ Prerequisites: Node.js 22+, pnpm 10, Docker Desktop.
 pnpm install
 cp .env.example .env
 pnpm infra:up      # PostgreSQL, Redis, MinIO, Mailpit
-pnpm db:smoke      # verify database invariants
+pnpm db:migrate    # apply database migrations
+pnpm db:seed       # development organisation and feature flags
+pnpm api:dev       # API on http://localhost:4000
 ```
 
 | Service       | URL                                 |
@@ -72,5 +74,6 @@ Each environment is an Ubuntu VM under Hyper-V running the stack with Docker Com
 - Requirements: [`docs/srs/Indent-Easy-SRS.md`](docs/srs/Indent-Easy-SRS.md)
 - GraphQL contract: [`packages/graphql/schema/schema.graphql`](packages/graphql/schema/schema.graphql)
 - REST contract: [`docs/api/openapi.yaml`](docs/api/openapi.yaml)
+- Database schema and migrations: [`docs/runbooks/database.md`](docs/runbooks/database.md)
 - Environments (DEV, QA, PROD): [`docs/runbooks/environments.md`](docs/runbooks/environments.md)
 - Build progress: [`docs/PROGRESS.md`](docs/PROGRESS.md)

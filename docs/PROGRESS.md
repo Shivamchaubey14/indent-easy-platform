@@ -4,7 +4,7 @@ Single source of truth for where the build stands. Update the checklist and the 
 end of every session. Roadmap phases come from SRS §62; timelines are not estimated there.
 
 **Current phase:** 0 — Foundation
-**Next task:** 0.7 (Drizzle), then 0.13/0.14/0.16 (CI, Dockerfiles, deployment pipeline to the VMs). PRs #1 → #2 → #3 → #4 are stacked; merge them in order.
+**Next task:** 0.13 CI, then 0.14 Dockerfiles, then 0.16 deployment to the VMs. PRs #1 → #5 are stacked; merge them in order.
 
 **Repo:** https://github.com/Shivamchaubey14/indent-easy-platform (public). `main` and `dev` are protected. Branches are `feature/*` → PR → `dev`, and `dev` → PR → `main` at phase milestones. The owner merges PRs; they are not merged from the build session.
 
@@ -32,7 +32,7 @@ end of every session. Roadmap phases come from SRS §62; timelines are not estim
 - [x] 0.4 Monorepo root — `package.json`, `pnpm-workspace.yaml`, `turbo.json`, prettier, `.env.example`, README
 - [x] 0.5 Shared packages: `tsconfig`, `config` (Zod env loader), `graphql` (move schema + codegen), `validation`, `domain-types`, `events` (TS types from JSON Schema). PR #1
 - [x] 0.6 `apps/api` skeleton: Express 5 + GraphQL Yoga, `/health/{live,ready,startup}`, Pino, graceful shutdown, DB + Redis clients (PR #3)
-- [ ] 0.7 Drizzle wired to the existing schema (introspect `0001_initial.sql`), migrations take over from the entrypoint mount
+- [x] 0.7 Drizzle: `@ie/db` package, `0000_baseline` + `0001_app_role` migrations, `ie_app` role so RLS applies, readiness gated on migrations, 9 integration tests (PR #5). Runbook: `docs/runbooks/database.md`
 - [ ] 0.8 `apps/worker` + `apps/scheduler` skeletons — BullMQ, outbox relay stub, leader lock
 - [ ] 0.9 `apps/web` skeleton — Vite + React + TanStack Router/Query + Zustand (session/ui stores) + Tailwind + GSAP (`useGSAP`); login page shell; EN/HI i18n
 - [ ] 0.10 `packages/design-tokens` (incl. motion tokens shared by GSAP and Reanimated) + `packages/ui` v0 (SRS §40)
@@ -83,3 +83,11 @@ end of every session. Roadmap phases come from SRS §62; timelines are not estim
 - The first `New-VMSwitch` failed ("Internal miniport create failed … already exists"). Hyper-V rolled it back and a retry succeeded.
 - UAC on this laptop elevates as a separate `Administrator` account, so `$env:USERNAME` inside the elevated script is wrong. `create-vms.ps1` now takes `-ForUser` from the normal shell. `Shivam` is in Hyper-V Administrators, effective after the next sign-in. Until then, starting and stopping VMs needs elevation.
 - Memory: with Docker Desktop running, only 0.45 GB was free. After `docker desktop stop`, free memory reached 1.5 GB once WSL released its RAM (it takes a minute). DEV booted at 768 MB startup. Docker Desktop is still stopped; run `pnpm infra:up` after starting it again.
+
+### 2026-09-24: Drizzle, app role, RLS enforced
+- Resumed with PRs #1–#4 unmerged, so kept stacking (#5 builds on #4).
+- DEV was running and Docker Desktop was stopped. I shut DEV down with `sudo systemctl poweroff` over SSH (no UAC needed), then started Docker with Postgres and Redis only, to save RAM.
+- drizzle-kit pull skips the 4 partitioned parents, so they are hand-written in `partitioned.ts`, outside drizzle-kit's view. It also mangled things; `scripts/pull-schema.mjs` fixes them all. See the pitfalls table in the database runbook. The worst was the backslash in the phone-number regex: a naive diff would have weakened the CHECK constraint.
+- The baseline snapshot is generated from the corrected `schema.ts`. `pnpm db:generate` reports "No schema changes".
+- Found that the app connected as the owner, so RLS was never applied. It now connects as `ie_app`, which tests prove sees 0 rows without `app.org_id` and can't write across organisations.
+- The Windows dynamic port range was 1024–65535, and Hyper-V had reserved 3407–4440, including API port 4000. With the user's OK, reset it to the default 49152+. **Port 4000 stays blocked until the laptop reboots.** The API now exits with a clear message on EACCES.
