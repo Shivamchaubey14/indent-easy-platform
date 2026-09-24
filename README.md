@@ -18,8 +18,8 @@ It covers:
 | Layer   | Technology                                                           |
 | ------- | -------------------------------------------------------------------- |
 | API     | Node.js 24, TypeScript, Express 5, GraphQL Yoga, Drizzle ORM, BullMQ |
-| Web     | React, Vite, TanStack Router/Query, Tailwind CSS                     |
-| Mobile  | React Native (Expo), SQLite offline store                            |
+| Web     | React, Vite, TanStack Router/Query, Zustand, Tailwind CSS, GSAP      |
+| Mobile  | React Native (Expo), Zustand, Reanimated, SQLite offline store       |
 | Data    | PostgreSQL 16, Redis 7, S3-compatible object storage                 |
 | Tooling | pnpm workspaces, Turborepo, Docker                                   |
 
