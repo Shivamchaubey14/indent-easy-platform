@@ -19,7 +19,9 @@
     "db:psql": "docker compose -f infrastructure/docker/compose.yaml exec postgres psql -U ie -d indent_easy",
     "db:smoke": "docker compose -f infrastructure/docker/compose.yaml exec -T postgres psql -U ie -d indent_easy -f /checks/constraint-smoke-test.sql",
     "db:reset": "docker compose -f infrastructure/docker/compose.yaml rm -sf postgres && docker volume rm -f indent-easy_pgdata && docker compose -f infrastructure/docker/compose.yaml up -d postgres",
-    "codegen": "turbo run codegen"
+    "codegen": "turbo run codegen",
+    "db:seed": "docker compose -f infrastructure/docker/compose.yaml exec -T postgres sh /seeds/apply.sh",
+    "api:dev": "pnpm --filter @ie/api dev"
   },
   "devDependencies": {
     "@types/node": "^24.13.6",
@@ -27,5 +29,13 @@
     "turbo": "^2.5.0",
     "typescript": "^5.9.0",
     "vitest": "^5.0.1"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ],
+    "overrides": {
+      "graphql": "^16.11.0"
+    }
   }
 }
