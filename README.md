@@ -75,6 +75,7 @@ Each environment is an Ubuntu VM under Hyper-V running the stack with Docker Com
 - GraphQL contract: [`packages/graphql/schema/schema.graphql`](packages/graphql/schema/schema.graphql)
 - REST contract: [`docs/api/openapi.yaml`](docs/api/openapi.yaml)
 - API documentation site (published behind Cloudflare Access): [`docs/runbooks/api-docs.md`](docs/runbooks/api-docs.md)
+- Container images: [`docs/runbooks/containers.md`](docs/runbooks/containers.md)
 - Database schema and migrations: [`docs/runbooks/database.md`](docs/runbooks/database.md)
 - Environments (DEV, QA, PROD): [`docs/runbooks/environments.md`](docs/runbooks/environments.md)
 - Build progress: [`docs/PROGRESS.md`](docs/PROGRESS.md)
