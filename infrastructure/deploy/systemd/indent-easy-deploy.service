@@ -1,0 +1,12 @@
+[Unit]
+Description=Indent Easy deploy agent (follows this environment's registry tag)
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=ieadmin
+Group=docker
+ExecStart=/opt/indent-easy/deploy.sh
+TimeoutStartSec=15min

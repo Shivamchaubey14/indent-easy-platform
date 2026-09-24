@@ -4,7 +4,7 @@ Single source of truth for where the build stands. Update the checklist and the 
 end of every session. Roadmap phases come from SRS §62; timelines are not estimated there.
 
 **Current phase:** 0 — Foundation
-**Next task:** 0.16 deployment to the VMs (GHCR images, VM compose stack, deploy agent, promotion). The alternative order is 0.8 worker/scheduler or 0.9 web first. PRs #1 → #8 are stacked; merge them in order. After #7 reaches `dev`, make the CI checks required (see 0.13).
+**Next task:** 0.8 worker + scheduler, or 0.9 web app (the user picks). PRs #1 → #9 are stacked; merge them in order. After #7 reaches `dev`, make the CI checks required (see 0.13). After the first image publish, make the GHCR package public (runbook `environments.md`).
 
 **Repo:** https://github.com/Shivamchaubey14/indent-easy-platform (public). `main` and `dev` are protected. Branches are `feature/*` → PR → `dev`, and `dev` → PR → `main` at phase milestones. The owner merges PRs; they are not merged from the build session.
 
@@ -42,7 +42,7 @@ end of every session. Roadmap phases come from SRS §62; timelines are not estim
 - [x] 0.13a API documentation site `apps/docs` (PR #6): guide, REST (Scalar), GraphQL (SpectaQL), events, status generated from the API build. Published by CI to Cloudflare Pages behind Cloudflare Access, and the deploy refuses to publish without the gate. **Waiting on the user:** Cloudflare account, Access app and GitHub secrets (`docs/runbooks/api-docs.md`)
 - [x] 0.14 API image (`infrastructure/docker/api.Dockerfile`, PR #8): distroless Debian 13, UID 10001, read-only root filesystem, about 60 MB compressed (285 MB unpacked), also the migrator (`dist/migrate.js`). CI lints, builds, scans (Trivy: 0 High/Critical) and boot-tests it. The web image waits for 0.9. Runbook: `docs/runbooks/containers.md`
 - [x] 0.15 DEV/QA/PROD Hyper-V VMs (DEC-003): scripts in `infrastructure/vm/`, runbook `docs/runbooks/environments.md`. All three VMs created. DEV booted and verified (cloud-init clean, fixed IP, NAT internet, Docker 29 + Compose, ufw, IST, swap). QA and PROD have identical images but haven't been booted yet (PR #4)
-- [ ] 0.16 Deployment pipeline: VM compose stack (NGINX web + api + worker + scheduler + PG + Redis + MinIO), deploy agent (systemd timer following the env tag), GHCR images built once on `dev`, promote workflows (rc tag → QA, release tag + `production` approval → PROD), PROD backups off-host
+- [x] 0.16 Deployment (PR #9): VM stack `infrastructure/deploy/` (Postgres, Redis, migrator, API) + deploy agent (systemd timer, follows the dev/qa/prod tag, auto-rollback). CI pushes `sha-<commit>` and moves `dev`; `release.yml` promotes rc tags to QA and release tags to PROD (with approval and an identical-to-rc check). GitHub environments dev/qa/production/docs created, production needs the owner's approval. **Tested live on DEV** with a registry inside the VM: first deploy, a broken release rolled back, an upgrade, a timer-driven deploy and a reboot. Still to do: GHCR publishing runs for real only after merge; installing on QA/PROD (`install.sh QA|PROD`); PROD backups off-host.
 
 **Exit criteria (§62):** a hello-world request goes through the whole pipeline; OQ-003, OQ-004, and OQ-022 are closed.
 
@@ -105,3 +105,10 @@ end of every session. Roadmap phases come from SRS §62; timelines are not estim
 - Found and fixed: the whole `apps/api` folder, including src and tests, was copied into the image (pnpm deploy follows `files`, which was unset).
 - Trivy: the Debian 12 distroless base still shipped an OpenSSL with 1 Critical and 5 High CVEs, while the Debian 13 base had none. Moved both build and runtime stages to Debian 13.
 - CI runs hadolint and Trivy as digest-pinned Docker images instead of third-party actions, to limit supply-chain risk.
+
+### 2026-09-25: deployment pipeline
+- DEV first failed to start: after `docker desktop stop` only 0.4–0.65 GB was free (VS Code 1.36 GB, Chrome 810 MB). The user closed apps, 1.36 GB came free and DEV booted.
+- Live test on DEV used a temporary registry inside the VM, because GHCR publishing needs the PRs merged. Results: first deploy 34 s; broken release rolled back in about 100 s and wasn't retried; upgrade 8 s with **about 4 s of downtime** (single API container); the timer deployed on its own within 30 s of a tag move; after a reboot the stack was ready in about 100 s.
+- Fixed during the test: the failure log now includes container status and health-check history (the broken image printed nothing); the installer's "next run" line used a systemd field monotonic timers don't set.
+- DEV now points at GHCR and logs "denied" every 2 minutes until the first publish (and until the package is made public). DEV is powered off to free memory, and Docker Desktop is stopped.
+- Installed native actionlint and shellcheck in `D:\devtools\bin` for when Docker is down.
