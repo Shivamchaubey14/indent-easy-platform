@@ -4,7 +4,7 @@ Single source of truth for where the build stands. Update the checklist and the 
 end of every session. Roadmap phases come from SRS §62; timelines are not estimated there.
 
 **Current phase:** 0 — Foundation
-**Next task:** 0.13 CI, then 0.14 Dockerfiles, then 0.16 deployment to the VMs. PRs #1 → #5 are stacked; merge them in order.
+**Next task:** 0.14 Dockerfiles, then 0.16 deployment to the VMs. PRs #1 → #7 are stacked; merge them in order. After #7 reaches `dev`, make the CI checks required (see 0.13).
 
 **Repo:** https://github.com/Shivamchaubey14/indent-easy-platform (public). `main` and `dev` are protected. Branches are `feature/*` → PR → `dev`, and `dev` → PR → `main` at phase milestones. The owner merges PRs; they are not merged from the build session.
 
@@ -38,7 +38,8 @@ end of every session. Roadmap phases come from SRS §62; timelines are not estim
 - [ ] 0.10 `packages/design-tokens` (incl. motion tokens shared by GSAP and Reanimated) + `packages/ui` v0 (SRS §40)
 - [ ] 0.11 `apps/mobile` skeleton — Expo dev build, Expo Router, Zustand, Reanimated (decide `node-linker`)
 - [ ] 0.12 ESLint + boundaries rules, Vitest, Testcontainers smoke test
-- [ ] 0.13 Actions CI (lint, typecheck, test, db smoke); then make CI a required check on `main`/`dev`. The repo and branch protection are already done.
+- [x] 0.13 GitHub Actions CI (PR #7). Two jobs: `Format, types, unit tests, build` (plus OpenAPI lint and a docs artifact) and `Migrations, invariants, RLS` (real Postgres, drift gate, 8 invariant asserts, integration tests). Green on GitHub. **To do once #7 is in `dev`:** make both checks required on `dev` and `main`. Doing it earlier would block #1–#6, which never run CI.
+- [x] 0.13a API documentation site `apps/docs` (PR #6): guide, REST (Scalar), GraphQL (SpectaQL), events, status generated from the API build. Published by CI to Cloudflare Pages behind Cloudflare Access, and the deploy refuses to publish without the gate. **Waiting on the user:** Cloudflare account, Access app and GitHub secrets (`docs/runbooks/api-docs.md`)
 - [ ] 0.14 Dockerfiles (api, web) per §44.2
 - [x] 0.15 DEV/QA/PROD Hyper-V VMs (DEC-003): scripts in `infrastructure/vm/`, runbook `docs/runbooks/environments.md`. All three VMs created. DEV booted and verified (cloud-init clean, fixed IP, NAT internet, Docker 29 + Compose, ufw, IST, swap). QA and PROD have identical images but haven't been booted yet (PR #4)
 - [ ] 0.16 Deployment pipeline: VM compose stack (NGINX web + api + worker + scheduler + PG + Redis + MinIO), deploy agent (systemd timer following the env tag), GHCR images built once on `dev`, promote workflows (rc tag → QA, release tag + `production` approval → PROD), PROD backups off-host
@@ -91,3 +92,10 @@ end of every session. Roadmap phases come from SRS §62; timelines are not estim
 - The baseline snapshot is generated from the corrected `schema.ts`. `pnpm db:generate` reports "No schema changes".
 - Found that the app connected as the owner, so RLS was never applied. It now connects as `ie_app`, which tests prove sees 0 rows without `app.org_id` and can't write across organisations.
 - The Windows dynamic port range was 1024–65535, and Hyper-V had reserved 3407–4440, including API port 4000. With the user's OK, reset it to the default 49152+. **Port 4000 stays blocked until the laptop reboots.** The API now exits with a clear message on EACCES.
+
+### 2026-09-24: API docs site and CI
+- The user wanted the docs live but visible only to authorised people. Chose Cloudflare Pages + Cloudflare Access (e-mail one-time PIN, free for up to 50 users), because GitHub Pages can't restrict viewers on a personal account and the VMs aren't reachable from the internet.
+- The docs are generated entirely from the contracts and code. REST routes are now declared in one table keyed by operationId and tested against the OpenAPI file. The API build writes `api-surface.json` for the status page.
+- Found with headless Edge screenshots: Scalar's layout broke under the site stylesheet, and it showed "Ask AI" and "Generate MCP" on localhost. Fixed with scoped header CSS and `agent`/`mcp` disabled.
+- First CI run failed: (1) Turbo strict env mode hid DATABASE_URL from the integration tests (now `passThroughEnv`); (2) `.npmrc` had `store-dir=D:/...`, which on Linux became a directory inside the checkout. The store location now lives only in the user-level pnpm config. Second run green.
+- Lesson: never pipe a check into `tail` inside an `&&` chain, because the exit code is lost. That's how an unformatted turbo.json was pushed; it was amended before CI picked it up.
