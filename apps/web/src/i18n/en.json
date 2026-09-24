@@ -1,0 +1,71 @@
+{
+  "app": {
+    "name": "Indent Easy",
+    "tagline": "Indents, approvals, procurement and stock in one place"
+  },
+  "nav": {
+    "main": "Main navigation",
+    "dashboard": "Dashboard",
+    "indents": "Indents",
+    "approvals": "Approvals",
+    "purchase": "Purchase",
+    "inventory": "Inventory",
+    "logistics": "Transfers",
+    "mppSales": "MPP sales",
+    "finance": "Finance",
+    "reports": "Reports",
+    "admin": "Administration",
+    "soon": "Soon",
+    "collapse": "Collapse navigation",
+    "expand": "Expand navigation"
+  },
+  "topbar": {
+    "language": "Language",
+    "theme": "Theme",
+    "themeSystem": "System",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "signOut": "Sign out"
+  },
+  "login": {
+    "title": "Sign in",
+    "subtitle": "Use your Shwetdhara work e-mail address.",
+    "email": "E-mail address",
+    "password": "Password",
+    "submit": "Sign in",
+    "forgot": "Forgot password?",
+    "notAvailable": "Sign-in is being built and will be available soon. Nothing was sent."
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "welcome": "Welcome to Indent Easy",
+    "intro": "Your tasks will appear here as each workspace is built. For now this page shows that the app, the API and the database are connected.",
+    "systemTitle": "System status",
+    "api": "API",
+    "database": "Database, cache and migrations",
+    "version": "Version",
+    "commit": "Commit",
+    "ready": "Ready",
+    "notReady": "Not ready",
+    "flagsTitle": "Feature flags",
+    "flagsEmpty": "No feature flags are set up for this organisation yet.",
+    "on": "On",
+    "off": "Off"
+  },
+  "state": {
+    "loading": "Loading…",
+    "error": "Something went wrong.",
+    "retry": "Try again",
+    "requestId": "Reference: {{id}}"
+  },
+  "notFound": {
+    "title": "Page not found",
+    "body": "The page you asked for doesn't exist.",
+    "home": "Go to the dashboard"
+  },
+  "validation": {
+    "required": "This field is required.",
+    "email": "Enter a valid e-mail address.",
+    "tooLong": "This is too long."
+  }
+}

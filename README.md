@@ -34,6 +34,7 @@ pnpm infra:up      # PostgreSQL, Redis, MinIO, Mailpit
 pnpm db:migrate    # apply database migrations
 pnpm db:seed       # development organisation and feature flags
 pnpm api:dev       # API on http://localhost:4000
+pnpm web:dev       # web app on http://localhost:5173 (proxies the API)
 ```
 
 | Service       | URL                                 |
