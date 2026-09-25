@@ -35,6 +35,7 @@ pnpm db:migrate    # apply database migrations
 pnpm db:seed       # development organisation and feature flags
 pnpm api:dev       # API on http://localhost:4000
 pnpm web:dev       # web app on http://localhost:5173 (proxies the API)
+pnpm worker:dev    # event relay, consumers and maintenance jobs
 ```
 
 | Service       | URL                                 |
@@ -76,6 +77,7 @@ Each environment is an Ubuntu VM under Hyper-V running the stack with Docker Com
 - GraphQL contract: [`packages/graphql/schema/schema.graphql`](packages/graphql/schema/schema.graphql)
 - REST contract: [`docs/api/openapi.yaml`](docs/api/openapi.yaml)
 - API documentation site (published behind Cloudflare Access): [`docs/runbooks/api-docs.md`](docs/runbooks/api-docs.md)
+- Domain events, worker and scheduler: [`docs/runbooks/events.md`](docs/runbooks/events.md)
 - Container images: [`docs/runbooks/containers.md`](docs/runbooks/containers.md)
 - Database schema and migrations: [`docs/runbooks/database.md`](docs/runbooks/database.md)
 - Environments (DEV, QA, PROD): [`docs/runbooks/environments.md`](docs/runbooks/environments.md)

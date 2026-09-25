@@ -8,6 +8,8 @@
 |---|---|---|
 | API (default) | `node dist/main.js`: GraphQL + REST on `:8080`, metrics on `:9464` | `DATABASE_URL` → `ie_app` |
 | Migrator | `node dist/migrate.js`: applies pending migrations, then exits | `MIGRATION_DATABASE_URL` → owner `ie` |
+| Worker | `node dist/worker.js`: outbox relay, event consumers, maintenance jobs; health and metrics on `:9464` | `DATABASE_URL` → `ie_app` |
+| Scheduler | `node dist/scheduler.js`: leader-elected; registers maintenance schedules; health and metrics on `:9464` | Redis only |
 
 Build and run locally (with `pnpm infra:up` running):
 
@@ -76,7 +78,3 @@ image starts `nginx` directly.
 CI builds, scans and boot-tests both images in one matrix job ("API image build and scan" and
 "Web image build and scan"), and promotes them together.
 
-## Not yet built
-
-- **worker** and **scheduler**: arrive with step 0.8. They'll reuse the API image with different
-  commands.
