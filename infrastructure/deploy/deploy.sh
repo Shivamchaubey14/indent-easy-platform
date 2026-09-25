@@ -4,7 +4,8 @@
 # Follows this environment's channel tag (dev, qa or prod) for two images, the API and the web
 # tier. When either tag points at a new digest it rolls the release out without downtime:
 #   1. migrations (only if the API image changed)
-#   2. api-a, then api-b: each must be healthy before the next is replaced, so one always serves
+#   2. api-a, then api-b: each must be healthy before the next is replaced, so one always serves;
+#      then worker and scheduler
 #   3. web (only if the web image changed)
 #   4. /health/ready through the web tier must pass
 # If any step fails, the previous pair of digests is rolled out the same way, and the failed
@@ -62,6 +63,12 @@ roll_out() { # api web running_api running_web
       compose up -d --no-deps --wait --wait-timeout 180 "$svc" || return 1
     done
   fi
+  # Worker and scheduler run the API image too. Events wait safely in the outbox while the
+  # worker restarts, so they don't need a rolling replacement.
+  if [ "$api" != "$was_api" ] || [ -z "$(compose ps -q worker 2>/dev/null)" ] ||
+    [ -z "$(compose ps -q scheduler 2>/dev/null)" ]; then
+    compose up -d --no-deps --wait --wait-timeout 120 worker scheduler || return 1
+  fi
   if [ "$web" != "$was_web" ] || [ -z "$(compose ps -q web 2>/dev/null)" ]; then
     compose up -d --no-deps --wait --wait-timeout 60 web || return 1
   fi
@@ -72,13 +79,13 @@ capture_failure() {
   {
     echo "== containers"
     compose ps -a 2>&1 || true
-    for svc in api-a api-b web; do
+    for svc in api-a api-b worker scheduler web; do
       echo "== $svc health checks"
       docker inspect --format '{{if .State.Health}}{{range .State.Health.Log}}{{.End}} exit={{.ExitCode}} {{.Output}}{{println}}{{end}}{{end}}' \
         "$(compose ps -aq "$svc" 2>/dev/null | head -n1)" 2>&1 || true
     done
     echo "== logs"
-    compose logs --no-color --tail 60 api-a api-b web 2>&1 || true
+    compose logs --no-color --tail 60 api-a api-b worker scheduler web 2>&1 || true
   } >"$STATE/failed-deploy.log"
 }
 

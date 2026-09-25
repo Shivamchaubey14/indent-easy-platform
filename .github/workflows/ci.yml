@@ -63,7 +63,14 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U ie -d indent_easy"
           --health-interval 5s --health-timeout 3s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 20
     env:
+      REDIS_URL: redis://localhost:6379
       PGHOST: localhost
       PGUSER: ie
       PGPASSWORD: ie_ci_only
