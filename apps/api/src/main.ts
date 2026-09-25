@@ -1,5 +1,4 @@
 import { createServer } from 'node:http';
-import { ConfigError, loadConfig, type AppConfig } from '@ie/config';
 import { loadTypeDefs } from '@ie/graphql/schema';
 import { createApp } from './app.js';
 import { createGraphQLServer } from './graphql/server.js';
@@ -7,24 +6,12 @@ import { postgresFeatureFlags } from './modules/configuration/index.js';
 import { migrationStatus } from '@ie/db';
 import { createPool, type Pool } from './shared/database.js';
 import { Health } from './shared/health.js';
-import { createLogger } from './shared/logging.js';
+import { processLogger, readConfig } from './shared/bootstrap.js';
 import { createMetrics, startMetricsServer } from './shared/metrics.js';
 import { createRedis } from './shared/redis.js';
 import { buildInfo } from './shared/version.js';
 
 const SHUTDOWN_GRACE_MS = 25_000;
-
-function readConfig(): AppConfig {
-  try {
-    return loadConfig();
-  } catch (err) {
-    if (err instanceof ConfigError) {
-      console.error(err.message);
-      process.exit(1);
-    }
-    throw err;
-  }
-}
 
 /**
  * Until authentication lands, requests run as the deployment's single organisation.
@@ -45,13 +32,7 @@ function singleOrganization(pool: Pool): () => Promise<string | undefined> {
 const config = readConfig();
 const typeDefs = loadTypeDefs();
 const info = buildInfo(typeDefs);
-const logger = createLogger({
-  level: process.env['LOG_LEVEL'] ?? (config.nodeEnv === 'production' ? 'info' : 'debug'),
-  service: 'api',
-  env: config.appEnv,
-  version: info.version,
-  pretty: config.nodeEnv === 'development',
-});
+const logger = processLogger('api', config);
 
 const pool = createPool(config.database, logger);
 const redis = createRedis(config.redis.url, logger);

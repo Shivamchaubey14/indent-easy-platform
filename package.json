@@ -28,7 +28,9 @@
     "docs:build": "turbo run build --filter=@ie/docs",
     "docs:dev": "pnpm --filter @ie/docs dev",
     "contracts:lint": "redocly lint docs/api/openapi.yaml --format=summary",
-    "web:dev": "pnpm --filter @ie/web dev"
+    "web:dev": "pnpm --filter @ie/web dev",
+    "worker:dev": "pnpm --filter @ie/api dev:worker",
+    "scheduler:dev": "pnpm --filter @ie/api dev:scheduler"
   },
   "devDependencies": {
     "@redocly/cli": "^2.54.2",

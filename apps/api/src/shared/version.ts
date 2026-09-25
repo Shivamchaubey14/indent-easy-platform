@@ -15,10 +15,15 @@ const packageVersion = (
   }
 ).version;
 
+/** The running version: APP_VERSION from the image, else package.json. */
+export function appVersion(env: NodeJS.ProcessEnv = process.env): string {
+  return env['APP_VERSION'] ?? packageVersion;
+}
+
 /** Build metadata for GET /api/v1/version. CI sets GIT_COMMIT and BUILD_TIME in the image. */
 export function buildInfo(typeDefs: string, env: NodeJS.ProcessEnv = process.env): BuildInfo {
   return {
-    version: env['APP_VERSION'] ?? packageVersion,
+    version: appVersion(env),
     commit: env['GIT_COMMIT'] ?? 'local',
     graphqlSchemaHash: createHash('sha256').update(typeDefs).digest('hex'),
     builtAt: env['BUILD_TIME'] ?? new Date().toISOString(),

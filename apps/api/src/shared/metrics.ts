@@ -2,6 +2,7 @@ import { createServer, type Server } from 'node:http';
 import type { RequestHandler } from 'express';
 import { Histogram, Registry, collectDefaultMetrics } from 'prom-client';
 import { currentContext } from './context.js';
+import type { Health } from './health.js';
 import type { Logger } from './logging.js';
 
 export interface Metrics {
@@ -59,9 +60,30 @@ export function accessLog(logger: Logger, metrics: Metrics): RequestHandler {
   };
 }
 
-/** Prometheus scrape endpoint on its own port, reachable only inside the cluster. */
-export function startMetricsServer(metrics: Metrics, port: number, logger: Logger): Server {
+/**
+ * Prometheus scrape endpoint on its own port, reachable only inside the cluster. Processes
+ * without a public HTTP port (worker, scheduler) also answer their health probes here.
+ */
+export function startMetricsServer(
+  metrics: Metrics,
+  port: number,
+  logger: Logger,
+  health?: Health,
+): Server {
   const server = createServer((req, res) => {
+    if (health && (req.url === '/health/live' || req.url === '/health/ready')) {
+      const json = (status: number, body: unknown) =>
+        res.writeHead(status, { 'Content-Type': 'application/json' }).end(JSON.stringify(body));
+      if (req.url === '/health/live') {
+        json(200, { status: 'ok' });
+        return;
+      }
+      health
+        .readiness()
+        .then((report) => json(report.status === 'ok' ? 200 : 503, report))
+        .catch(() => json(503, { status: 'fail' }));
+      return;
+    }
     if (req.url !== '/metrics') {
       res.writeHead(404).end();
       return;
