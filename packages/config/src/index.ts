@@ -58,6 +58,13 @@ export const envSchema = z
     GRAPHQL_MAX_COST: z.coerce.number().int().min(1).default(5000),
     GRAPHQL_PERSISTED_ONLY: flag.default(true),
     GRAPHQL_INTROSPECTION: flag.default(false),
+    // Worker process: which event consumers this deployment runs (comma list); unset = all.
+    WORKER_CONSUMERS: optionalText.transform((v) =>
+      v
+        ?.split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    ),
   })
   .superRefine((env, ctx) => {
     if (env.CORS_ALLOWED_ORIGINS.some((o) => o.includes('*'))) {
@@ -132,6 +139,7 @@ function toConfig(env: Env) {
     },
     pdf: { gotenbergUrl: env.GOTENBERG_URL },
     timezone: env.DEFAULT_TIMEZONE,
+    worker: { consumers: env.WORKER_CONSUMERS },
     graphql: {
       maxDepth: env.GRAPHQL_MAX_DEPTH,
       maxCost: env.GRAPHQL_MAX_COST,
