@@ -31,6 +31,7 @@
     "contracts:lint": "redocly lint docs/api/openapi.yaml --format=summary",
     "web:dev": "pnpm --filter @ie/web dev",
     "ui:storybook": "pnpm --filter @ie/ui storybook",
+    "mobile:dev": "pnpm --filter @ie/mobile start --lan",
     "worker:dev": "pnpm --filter @ie/api dev:worker",
     "scheduler:dev": "pnpm --filter @ie/api dev:scheduler"
   },
@@ -56,7 +57,8 @@
       "esbuild"
     ],
     "overrides": {
-      "graphql": "^16.11.0"
+      "graphql": "^16.11.0",
+      "typescript": "~5.9.3"
     }
   }
 }
