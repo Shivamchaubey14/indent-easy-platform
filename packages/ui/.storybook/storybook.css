@@ -1,4 +1,8 @@
 @import 'tailwindcss';
-@import '@ie/ui/theme.css';
+@import '../src/theme.css';
 @import '@fontsource-variable/inter';
 @import '@fontsource/tiro-devanagari-hindi/400.css';
+
+body {
+  background: var(--ie-color-background);
+}

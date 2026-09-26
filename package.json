@@ -30,6 +30,7 @@
     "docs:dev": "pnpm --filter @ie/docs dev",
     "contracts:lint": "redocly lint docs/api/openapi.yaml --format=summary",
     "web:dev": "pnpm --filter @ie/web dev",
+    "ui:storybook": "pnpm --filter @ie/ui storybook",
     "worker:dev": "pnpm --filter @ie/api dev:worker",
     "scheduler:dev": "pnpm --filter @ie/api dev:scheduler"
   },

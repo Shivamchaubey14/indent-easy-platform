@@ -56,7 +56,11 @@
     "loading": "लोड हो रहा है…",
     "error": "कुछ गलत हो गया।",
     "retry": "फिर से कोशिश करें",
-    "requestId": "संदर्भ: {{id}}"
+    "requestId": "संदर्भ: {{id}}",
+    "close": "बंद करें",
+    "dismiss": "हटाएँ",
+    "required": "आवश्यक",
+    "notifications": "सूचनाएँ"
   },
   "notFound": {
     "title": "पेज नहीं मिला",

@@ -1,9 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Card, ErrorState, Loading, StatusBadge } from '../../components/ui';
+import { Card, ErrorState, Loading, StatusBadge, useEnter } from '@ie/ui';
 import { ApiRequestError } from '../../lib/api';
-import { useEnter } from '../../motion/useEnter';
 import { buildInfoQuery, featureFlagsQuery, readinessQuery } from './api';
 
 const requestIdOf = (error: unknown) =>

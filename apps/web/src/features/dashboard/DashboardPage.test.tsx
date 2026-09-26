@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { applyLocale } from '../../i18n';
 import { ApiRequestError, gql, rest } from '../../lib/api';
 import type * as ApiModule from '../../lib/api';
+import { UiProviders } from '../../components/UiProviders';
 import { DashboardPage } from './DashboardPage';
 
 vi.mock('../../lib/api', async (original) => ({
@@ -16,7 +17,9 @@ function renderPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <DashboardPage />
+      <UiProviders>
+        <DashboardPage />
+      </UiProviders>
     </QueryClientProvider>,
   );
 }

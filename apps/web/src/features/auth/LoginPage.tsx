@@ -3,9 +3,8 @@ import { loginInputSchema, type LoginInput } from '@ie/validation';
 import { useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { Button, Card } from '../../components/ui';
+import { Alert, Button, Card, Field, TextInput, useEnter } from '@ie/ui';
 import { LanguageToggle } from '../../components/Preferences';
-import { useEnter } from '../../motion/useEnter';
 
 /**
  * Sign-in screen. Validation uses the same Zod schema the API will enforce. Authentication itself
@@ -38,55 +37,34 @@ export function LoginPage() {
             className="mt-6 space-y-4"
             onSubmit={handleSubmit(() => setNotice(true))}
           >
-            <div>
-              <label htmlFor="email" className="block font-medium">
-                {t('login.email')}
-              </label>
-              <input
-                id="email"
-                type="email"
-                autoComplete="username"
-                aria-invalid={errors.email ? 'true' : 'false'}
-                aria-describedby={errors.email ? 'email-error' : undefined}
-                className="mt-1 h-10 w-full rounded-md border border-border-control bg-surface-input px-3"
-                {...register('email')}
-              />
-              {errors.email && (
-                <p id="email-error" className="mt-1 text-body-sm text-danger-text">
-                  {fieldError(errors.email.message)}
-                </p>
+            <Field label={t('login.email')} error={fieldError(errors.email?.message)} required>
+              {(control) => (
+                <TextInput
+                  {...control}
+                  type="email"
+                  autoComplete="username"
+                  {...register('email')}
+                />
               )}
-            </div>
-            <div>
-              <label htmlFor="password" className="block font-medium">
-                {t('login.password')}
-              </label>
-              <input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                aria-invalid={errors.password ? 'true' : 'false'}
-                aria-describedby={errors.password ? 'password-error' : undefined}
-                className="mt-1 h-10 w-full rounded-md border border-border-control bg-surface-input px-3"
-                {...register('password')}
-              />
-              {errors.password && (
-                <p id="password-error" className="mt-1 text-body-sm text-danger-text">
-                  {fieldError(errors.password.message)}
-                </p>
+            </Field>
+            <Field
+              label={t('login.password')}
+              error={fieldError(errors.password?.message)}
+              required
+            >
+              {(control) => (
+                <TextInput
+                  {...control}
+                  type="password"
+                  autoComplete="current-password"
+                  {...register('password')}
+                />
               )}
-            </div>
+            </Field>
             <Button type="submit" className="w-full">
               {t('login.submit')}
             </Button>
-            {notice && (
-              <p
-                role="status"
-                className="rounded-md bg-info-surface p-3 text-body-sm text-info-text"
-              >
-                {t('login.notAvailable')}
-              </p>
-            )}
+            {notice && <Alert tone="info">{t('login.notAvailable')}</Alert>}
           </form>
         </Card>
       </div>

@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createRouter } from '@tanstack/react-router';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { UiProviders } from './components/UiProviders';
 import { routeTree } from './generated/routeTree.gen';
 import { applyLocale } from './i18n';
 import { ApiRequestError } from './lib/api';
@@ -36,7 +37,9 @@ applyLocale(locale);
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <UiProviders>
+        <RouterProvider router={router} />
+      </UiProviders>
     </QueryClientProvider>
   </StrictMode>,
 );
