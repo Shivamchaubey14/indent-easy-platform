@@ -1,0 +1,42 @@
+{
+  "app": {
+    "name": "Indent Easy"
+  },
+  "tabs": {
+    "home": "Home",
+    "more": "More"
+  },
+  "home": {
+    "welcome": "Welcome to Indent Easy",
+    "intro": "Your tasks will appear here as each workspace is built. For now this screen shows that the app can reach the API.",
+    "systemTitle": "System status",
+    "api": "API",
+    "checks": "Database, cache and migrations",
+    "version": "Version",
+    "commit": "Commit",
+    "server": "Server",
+    "ready": "Ready",
+    "notReady": "Not ready"
+  },
+  "more": {
+    "title": "More",
+    "language": "Language",
+    "theme": "Theme",
+    "themeSystem": "System",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "about": "About this app",
+    "appVersion": "App version",
+    "localDatabase": "Local database",
+    "localDatabaseReady": "Ready"
+  },
+  "state": {
+    "loading": "Loading…",
+    "error": "Something went wrong.",
+    "unreachable": "The server could not be reached. Check that this phone is on the office network.",
+    "retry": "Try again",
+    "requestId": "Reference: {{id}}",
+    "offline": "You are offline. Changes will sync when the connection is back.",
+    "databaseFailed": "The app could not prepare its storage on this phone. Please reinstall it or contact support."
+  }
+}

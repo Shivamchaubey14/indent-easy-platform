@@ -47,6 +47,8 @@ jobs:
         run: node scripts/ci/web-bundle-budget.mjs
       - name: Component library stories build
         run: pnpm --filter @ie/ui build-storybook
+      - name: Mobile app bundles for Android
+        run: pnpm --filter @ie/mobile export:android
       - name: Upload documentation site
         uses: actions/upload-artifact@v4
         with:

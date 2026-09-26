@@ -55,6 +55,18 @@ const cases = [
     rule: 'i18next/no-literal-string',
   },
   {
+    what: 'shared mobile code imports a feature',
+    file: 'apps/mobile/src/components/zz-lint-probe.ts',
+    code: "import { buildInfoQuery } from '../features/home/api';\nexport const probe = buildInfoQuery;\n",
+    rule: 'boundaries/dependencies',
+  },
+  {
+    what: 'hard-coded user-facing text in a mobile screen',
+    file: 'apps/mobile/src/features/home/zz-lint-probe-jsx.tsx',
+    code: "import { Text } from 'react-native';\nexport const Probe = () => <Text>Hello there</Text>;\n",
+    rule: 'i18next/no-literal-string',
+  },
+  {
     what: 'a promise is neither awaited nor handled',
     file: 'apps/api/src/shared/zz-lint-probe-promise.ts',
     code: 'async function work(): Promise<void> {}\nexport function probe(): void {\n  work();\n}\n',

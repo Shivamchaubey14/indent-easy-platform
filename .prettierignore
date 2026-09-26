@@ -4,3 +4,4 @@ packages/events/schema/
 pnpm-lock.yaml
 **/dist/
 **/src/generated/
+apps/mobile/src/db/migrations/
