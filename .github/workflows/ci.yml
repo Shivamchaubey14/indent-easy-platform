@@ -173,7 +173,14 @@ jobs:
             -e S3_BUCKET_DOCUMENTS=ci-documents -e S3_BUCKET_EXPORTS=ci-exports -e S3_BUCKET_IMPORTS=ci-imports -e S3_BUCKET_QUARANTINE=ci-quarantine \
             -e SMTP_HOST=localhost -e MAIL_FROM=ci@example.invalid \
             "$LOCAL_TAG"
-          for _ in $(seq 1 30); do curl -fs http://localhost:8080/health/live && exit 0; sleep 1; done
+          for _ in $(seq 1 30); do
+            if curl -fs http://localhost:8080/health/live; then
+              # Token signing works inside the image (native crypto, no missing modules).
+              curl -fs http://localhost:8080/.well-known/jwks.json | grep -q '"alg":"ES256"' && exit 0
+              break
+            fi
+            sleep 1
+          done
           docker logs api
           exit 1
       - name: The web image starts, serves the app and sends its security headers

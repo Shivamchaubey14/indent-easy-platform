@@ -3,10 +3,12 @@ import { loadTypeDefs } from '@ie/graphql/schema';
 import { createApp } from './app.js';
 import { createGraphQLServer } from './graphql/server.js';
 import { postgresFeatureFlags } from './modules/configuration/index.js';
+import { createIdentity } from './modules/identity/index.js';
 import { migrationStatus } from '@ie/db';
 import { createPool, type Pool } from './shared/database.js';
 import { Health } from './shared/health.js';
 import { processLogger, readConfig } from './shared/bootstrap.js';
+import { currentContext } from './shared/context.js';
 import { createMetrics, startMetricsServer } from './shared/metrics.js';
 import { createRedis } from './shared/redis.js';
 import { buildInfo } from './shared/version.js';
@@ -14,7 +16,8 @@ import { buildInfo } from './shared/version.js';
 const SHUTDOWN_GRACE_MS = 25_000;
 
 /**
- * Until authentication lands, requests run as the deployment's single organisation.
+ * Signed-in requests run in the caller's organisation. Anonymous GraphQL requests still fall back
+ * to the deployment's single organisation until every operation requires sign-in (Phase 1.2).
  * Looked up lazily so the API can start while the database is still coming up.
  */
 function singleOrganization(pool: Pool): () => Promise<string | undefined> {
@@ -52,15 +55,17 @@ const health = new Health(
   logger,
 );
 
+const fallbackOrganization = singleOrganization(pool);
 const graphql = createGraphQLServer({
   config,
   logger,
   typeDefs,
   services: { featureFlags: postgresFeatureFlags(pool) },
-  organizationId: singleOrganization(pool),
+  organizationId: async () => currentContext()?.principal?.organizationId ?? fallbackOrganization(),
 });
 
-const app = createApp({ config, logger, metrics, health, graphql, buildInfo: info });
+const identity = await createIdentity({ config, pool, redis, logger });
+const app = createApp({ config, logger, metrics, health, graphql, buildInfo: info, identity });
 const server = createServer(app);
 const metricsServer = startMetricsServer(metrics, config.http.metricsPort, logger);
 

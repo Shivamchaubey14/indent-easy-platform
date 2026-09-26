@@ -30,7 +30,7 @@
   "login": {
     "title": "Sign in",
     "subtitle": "Use your Shwetdhara work e-mail address.",
-    "email": "E-mail address",
+    "identifier": "E-mail or employee code",
     "password": "Password",
     "submit": "Sign in",
     "forgot": "Forgot password?",

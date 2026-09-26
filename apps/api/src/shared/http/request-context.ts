@@ -26,6 +26,9 @@ export function requestContext(): RequestHandler {
         clientName: safeHeader(req.get('x-client-name')),
         clientVersion: safeHeader(req.get('x-client-version')),
         locale,
+        // req.ip honours X-Forwarded-For only from the trusted proxies configured in app.ts.
+        ip: req.ip,
+        userAgent: req.get('user-agent')?.slice(0, 512),
       },
       next,
     );

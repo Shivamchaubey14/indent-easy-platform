@@ -37,14 +37,13 @@ export function LoginPage() {
             className="mt-6 space-y-4"
             onSubmit={handleSubmit(() => setNotice(true))}
           >
-            <Field label={t('login.email')} error={fieldError(errors.email?.message)} required>
+            <Field
+              label={t('login.identifier')}
+              error={fieldError(errors.identifier?.message)}
+              required
+            >
               {(control) => (
-                <TextInput
-                  {...control}
-                  type="email"
-                  autoComplete="username"
-                  {...register('email')}
-                />
+                <TextInput {...control} autoComplete="username" {...register('identifier')} />
               )}
             </Field>
             <Field

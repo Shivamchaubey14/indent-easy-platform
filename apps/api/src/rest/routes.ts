@@ -11,6 +11,15 @@ export const REST_ROUTES = [
   { operationId: 'readiness', method: 'get', path: '/health/ready' },
   { operationId: 'startup', method: 'get', path: '/health/startup' },
   { operationId: 'version', method: 'get', path: '/api/v1/version' },
+  { operationId: 'login', method: 'post', path: '/api/v1/auth/login' },
+  { operationId: 'refreshToken', method: 'post', path: '/api/v1/auth/refresh' },
+  { operationId: 'getCsrfToken', method: 'get', path: '/api/v1/auth/csrf' },
+  { operationId: 'logout', method: 'post', path: '/api/v1/auth/logout' },
+  { operationId: 'logoutAll', method: 'post', path: '/api/v1/auth/logout-all' },
+  { operationId: 'forgotPassword', method: 'post', path: '/api/v1/auth/password/forgot' },
+  { operationId: 'resetPassword', method: 'post', path: '/api/v1/auth/password/reset' },
+  { operationId: 'changePassword', method: 'post', path: '/api/v1/auth/password/change' },
+  { operationId: 'getJwks', method: 'get', path: '/.well-known/jwks.json' },
   // Served by the separate metrics listener, not the main app.
   { operationId: 'metrics', method: 'get', path: '/metrics', listener: 'metrics' },
 ] as const;
