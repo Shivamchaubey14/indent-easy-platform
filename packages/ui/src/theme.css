@@ -1,0 +1,111 @@
+/*
+ * @ie/ui theme: maps Tailwind utilities onto the design tokens and sets the base styles. Import it
+ * right after Tailwind:
+ *
+ *   @import 'tailwindcss';
+ *   @import '@ie/ui/theme.css';
+ */
+@import '@ie/design-tokens/tokens.css';
+
+/* Let Tailwind see the classes used inside the component library. */
+@source './';
+
+/*
+ * Tailwind utilities map onto the design tokens (SRS §40): no colour literals here or in
+ * components. Theme switching happens by changing the --ie-* variables, not the classes.
+ */
+@theme inline {
+  --color-background: var(--ie-color-background);
+  --color-surface: var(--ie-color-surface);
+  --color-surface-muted: var(--ie-color-surface-muted);
+  --color-surface-input: var(--ie-color-surface-input);
+  --color-border: var(--ie-color-border);
+  --color-border-control: var(--ie-color-border-control);
+  --color-text-primary: var(--ie-color-text-primary);
+  --color-text-secondary: var(--ie-color-text-secondary);
+  --color-text-tertiary: var(--ie-color-text-tertiary);
+  --color-primary: var(--ie-color-primary);
+  --color-primary-foreground: var(--ie-color-primary-foreground);
+  --color-secondary: var(--ie-color-secondary);
+  --color-secondary-foreground: var(--ie-color-secondary-foreground);
+  --color-accent: var(--ie-color-accent);
+  --color-link: var(--ie-color-link);
+  --color-focus: var(--ie-color-focus);
+  --color-success: var(--ie-color-success);
+  --color-success-surface: var(--ie-color-success-surface);
+  --color-success-text: var(--ie-color-success-text);
+  --color-warning: var(--ie-color-warning);
+  --color-warning-surface: var(--ie-color-warning-surface);
+  --color-warning-text: var(--ie-color-warning-text);
+  --color-danger: var(--ie-color-danger);
+  --color-danger-surface: var(--ie-color-danger-surface);
+  --color-danger-text: var(--ie-color-danger-text);
+  --color-info: var(--ie-color-info);
+  --color-info-surface: var(--ie-color-info-surface);
+  --color-info-text: var(--ie-color-info-text);
+  --color-disabled: var(--ie-color-disabled);
+  --color-disabled-text: var(--ie-color-disabled-text);
+  --color-overlay: var(--ie-color-overlay);
+
+  --font-sans: var(--ie-font-sans);
+  --font-devanagari: var(--ie-font-devanagari);
+
+  --radius-sm: var(--ie-radius-sm);
+  --radius-md: var(--ie-radius-md);
+  --radius-lg: var(--ie-radius-lg);
+
+  /* Type scale (SRS §40.3). */
+  --text-display: 1.875rem;
+  --text-display--line-height: 2.25rem;
+  --text-h1: 1.5rem;
+  --text-h1--line-height: 2rem;
+  --text-h2: 1.25rem;
+  --text-h2--line-height: 1.75rem;
+  --text-h3: 1rem;
+  --text-h3--line-height: 1.5rem;
+  --text-body: 0.875rem;
+  --text-body--line-height: 1.25rem;
+  --text-body-sm: 0.8125rem;
+  --text-body-sm--line-height: 1.125rem;
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1rem;
+}
+
+@layer base {
+  html {
+    background: var(--ie-color-background);
+    color: var(--ie-color-text-primary);
+    font-family: var(--ie-font-sans);
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    margin: 0;
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+  }
+
+  /*
+   * Hindi: Inter draws Latin text and digits, Tiro Devanagari Hindi draws the Devanagari. Tiro has
+   * only a regular weight, so hierarchy comes from size and colour, never synthetic bold.
+   */
+  :lang(hi) {
+    font-family: var(--ie-font-hindi);
+    font-synthesis: none;
+    line-height: 1.38;
+  }
+
+  /* Numbers line up in tables and summaries. */
+  .tabular {
+    font-feature-settings:
+      'tnum' 1,
+      'zero' 1,
+      'cv11' 1;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ie-color-focus);
+    outline-offset: 2px;
+  }
+}

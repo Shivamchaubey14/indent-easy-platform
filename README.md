@@ -36,6 +36,7 @@ pnpm db:seed       # development organisation and feature flags
 pnpm api:dev       # API on http://localhost:4000
 pnpm web:dev       # web app on http://localhost:5173 (proxies the API)
 pnpm worker:dev    # event relay, consumers and maintenance jobs
+pnpm ui:storybook  # component library on http://localhost:6006
 ```
 
 | Service       | URL                                 |

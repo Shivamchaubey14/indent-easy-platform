@@ -22,3 +22,4 @@ legacy-data/
 
 # Generated code (rebuilt by `turbo run codegen`)
 **/src/generated/
+storybook-static

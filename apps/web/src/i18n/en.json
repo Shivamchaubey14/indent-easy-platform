@@ -56,7 +56,11 @@
     "loading": "Loading…",
     "error": "Something went wrong.",
     "retry": "Try again",
-    "requestId": "Reference: {{id}}"
+    "requestId": "Reference: {{id}}",
+    "close": "Close",
+    "dismiss": "Dismiss",
+    "required": "required",
+    "notifications": "Notifications"
   },
   "notFound": {
     "title": "Page not found",
