@@ -1,6 +1,7 @@
 import type { TypedDocumentNode } from '@graphql-typed-document-node/core';
 import { ClientError, GraphQLClient } from 'graphql-request';
 import { useSessionStore } from '../stores/session';
+import { refreshSession } from './auth';
 import { useUiStore } from '../stores/ui';
 
 const CLIENT_VERSION = (import.meta.env['VITE_RELEASE'] as string | undefined) ?? '0.1.0';
@@ -31,11 +32,38 @@ export class ApiRequestError extends Error {
   }
 }
 
+/**
+ * Runs a request; if the access token was refused (expired, or older than a role change), gets a
+ * new one from the refresh cookie and tries once more.
+ */
+async function withFreshToken<T>(send: () => Promise<T>): Promise<T> {
+  try {
+    return await send();
+  } catch (err) {
+    const refusedToken = err instanceof ApiRequestError && err.code === 'AUTH_TOKEN_EXPIRED';
+    if (
+      refusedToken &&
+      useSessionStore.getState().status === 'signedIn' &&
+      (await refreshSession())
+    ) {
+      return send();
+    }
+    throw err;
+  }
+}
+
 const graphqlClient = new GraphQLClient(`${location.origin}/graphql`);
 
-export async function gql<TResult, TVariables extends Record<string, unknown>>(
+export function gql<TResult, TVariables extends Record<string, unknown>>(
   document: TypedDocumentNode<TResult, TVariables>,
   ...[variables]: TVariables extends Record<string, never> ? [] : [TVariables]
+): Promise<TResult> {
+  return withFreshToken(() => sendGql(document, variables as TVariables | undefined));
+}
+
+async function sendGql<TResult, TVariables extends Record<string, unknown>>(
+  document: TypedDocumentNode<TResult, TVariables>,
+  variables: TVariables | undefined,
 ): Promise<TResult> {
   const requestId = crypto.randomUUID();
   try {
@@ -47,7 +75,8 @@ export async function gql<TResult, TVariables extends Record<string, unknown>>(
   } catch (err) {
     if (err instanceof ClientError) {
       const first = err.response.errors?.[0];
-      const raw = first?.extensions?.['code'];
+      // A refused token is answered before GraphQL runs, as a REST problem with a top-level code.
+      const raw = first?.extensions?.['code'] ?? (err.response as { code?: unknown }).code;
       const code = typeof raw === 'string' ? raw : 'INTERNAL_ERROR';
       throw new ApiRequestError(
         first?.message ?? 'Request failed',
@@ -60,8 +89,12 @@ export async function gql<TResult, TVariables extends Record<string, unknown>>(
   }
 }
 
-/** JSON REST call (health, version and, later, auth and files). */
-export async function rest<T>(path: string): Promise<T> {
+/** JSON REST call (health, version and, later, files). Sign-in calls live in ./auth. */
+export function rest<T>(path: string): Promise<T> {
+  return withFreshToken(() => sendRest<T>(path));
+}
+
+async function sendRest<T>(path: string): Promise<T> {
   const requestId = crypto.randomUUID();
   let response: Response;
   try {

@@ -117,8 +117,23 @@ export default tseslint.config(
     },
   },
   {
-    files: ['apps/web/src/lib/api.ts', ...TESTS.map((p) => `apps/web/src/${p}`)],
+    // lib/api.ts and lib/auth.ts are the two places that talk HTTP.
+    files: [
+      'apps/web/src/lib/api.ts',
+      'apps/web/src/lib/auth.ts',
+      ...TESTS.map((p) => `apps/web/src/${p}`),
+    ],
     rules: { 'no-restricted-globals': 'off', 'i18next/no-literal-string': 'off' },
+  },
+  {
+    // TanStack Router guards redirect by throwing `redirect(...)`, which is not an Error.
+    files: ['apps/web/src/routes/**/*.tsx'],
+    rules: {
+      '@typescript-eslint/only-throw-error': [
+        'error',
+        { allow: [{ from: 'package', package: '@tanstack/router-core', name: 'Redirect' }] },
+      ],
+    },
   },
   {
     // Stories and tests show sample content; the components themselves take all text as props.

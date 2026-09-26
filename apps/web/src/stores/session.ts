@@ -1,23 +1,40 @@
 import { create } from 'zustand';
 
-export interface SessionUser {
-  id: string;
-  displayName: string;
-  email: string;
-}
+export type SessionStatus = 'unknown' | 'signedIn' | 'signedOut';
 
 interface SessionState {
-  user: SessionUser | null;
-  /** Access token lives in memory only, never in storage (SRS §30.1). */
+  /** `unknown` until the first refresh attempt tells us whether a session cookie exists. */
+  status: SessionStatus;
+  /** Access token lives in memory only, never in storage (SRS §30.1, AUTH-007). */
   accessToken: string | null;
-  signIn: (user: SessionUser, accessToken: string) => void;
-  signOut: () => void;
+  /** Epoch milliseconds when the access token expires. */
+  expiresAt: number;
+  /** A temporary password must be replaced before anything else (AUTH-013). */
+  mustChangePassword: boolean;
+  setSession: (session: {
+    accessToken: string;
+    expiresIn: number;
+    mustChangePassword: boolean;
+  }) => void;
+  clear: () => void;
 }
 
-/** Client session. Filled by the login flow in Phase 1; server data stays in TanStack Query. */
+/**
+ * Client session state (DEC-002: client state in Zustand). Who the user is and what they may do
+ * comes from the `me` query in TanStack Query; this only holds the credentials to ask.
+ */
 export const useSessionStore = create<SessionState>()((set) => ({
-  user: null,
+  status: 'unknown',
   accessToken: null,
-  signIn: (user, accessToken) => set({ user, accessToken }),
-  signOut: () => set({ user: null, accessToken: null }),
+  expiresAt: 0,
+  mustChangePassword: false,
+  setSession: ({ accessToken, expiresIn, mustChangePassword }) =>
+    set({
+      status: 'signedIn',
+      accessToken,
+      expiresAt: Date.now() + expiresIn * 1000,
+      mustChangePassword,
+    }),
+  clear: () =>
+    set({ status: 'signedOut', accessToken: null, expiresAt: 0, mustChangePassword: false }),
 }));
