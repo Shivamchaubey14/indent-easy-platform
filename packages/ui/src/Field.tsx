@@ -1,6 +1,12 @@
 import { CircleX } from 'lucide-react';
 import { Label } from 'radix-ui';
-import { type InputHTMLAttributes, type ReactNode, type Ref, useId } from 'react';
+import {
+  type InputHTMLAttributes,
+  type ReactNode,
+  type Ref,
+  type SelectHTMLAttributes,
+  useId,
+} from 'react';
 import { cn } from './cn';
 import { useUiStrings } from './strings';
 
@@ -83,5 +89,55 @@ export function TextInput({ className, type = 'text', ...props }: TextInputProps
       )}
       {...props}
     />
+  );
+}
+
+export interface SelectInputProps extends SelectHTMLAttributes<HTMLSelectElement> {
+  ref?: Ref<HTMLSelectElement>;
+}
+
+/** A native select styled like TextInput: keyboard, screen readers and phones handle it well. */
+export function SelectInput({ className, ...props }: SelectInputProps) {
+  return (
+    <select
+      className={cn(
+        'h-10 w-full rounded-md border border-border-control bg-surface-input px-3 text-body text-text-primary',
+        'aria-invalid:border-danger disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-text',
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+export interface CheckboxProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> {
+  label: ReactNode;
+  /** Extra line under the label. */
+  description?: ReactNode;
+  ref?: Ref<HTMLInputElement>;
+}
+
+/** A labelled checkbox; the whole label is the click target (at least 24 px, A11Y-004). */
+export function Checkbox({ label, description, className, id, ...props }: CheckboxProps) {
+  const generated = useId();
+  const inputId = id ?? generated;
+  return (
+    <div className={cn('flex items-start gap-2', className)}>
+      <input
+        id={inputId}
+        type="checkbox"
+        className="mt-0.5 size-4 shrink-0 accent-primary"
+        {...(description ? { 'aria-describedby': `${inputId}-description` } : {})}
+        {...props}
+      />
+      <label htmlFor={inputId} className="min-h-6 text-body">
+        {label}
+        {description && (
+          <span id={`${inputId}-description`} className="block text-caption text-text-secondary">
+            {description}
+          </span>
+        )}
+      </label>
+    </div>
   );
 }
