@@ -46,6 +46,13 @@ install -m 0755 /tmp/ie-install/deploy.sh "$D/deploy.sh"
 install -m 0755 /tmp/ie-install/10-app-role.sh "$D/init/10-app-role.sh"
 printf 'IE_API_REPO=%s\nIE_WEB_REPO=%s\n' "$API_REPO" "$WEB_REPO" > "$D/agent.conf"
 
+# Access-token signing key: an ES256 (P-256) private key as `kid:<base64 PKCS#8 DER>`.
+signing_key() {
+  printf 'k%s:%s' "$(date +%Y%m%d)" \
+    "$(openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 2>/dev/null \
+      | openssl pkcs8 -topk8 -nocrypt -outform DER | base64 -w0)"
+}
+
 if [ ! -f "$D/.env" ]; then
   secret() { openssl rand -base64 36 | tr -d '/+=\n' | cut -c1-40; }
   umask 077
@@ -56,12 +63,18 @@ PUBLIC_BASE_URL=http://$LOWER.$DOMAIN
 CORS_ALLOWED_ORIGINS=http://$LOWER.$DOMAIN
 POSTGRES_PASSWORD=$(secret)
 IE_APP_PASSWORD=$(secret)
-# Placeholder until authentication (Phase 1) replaces it with an ES256 JWK set.
-JWT_SIGNING_KEYS=$(secret)
+JWT_SIGNING_KEYS=$(signing_key)
 CSRF_SECRET=$(secret)
 GRAPHQL_INTROSPECTION=$INTROSPECTION
 ENV
   echo "generated secrets in $D/.env"
+fi
+# VMs installed before authentication existed hold a random placeholder instead of a key.
+if ! grep -q '^JWT_SIGNING_KEYS=k[0-9]*:' "$D/.env"; then
+  sed -i "s|^JWT_SIGNING_KEYS=.*|JWT_SIGNING_KEYS=$(signing_key)|" "$D/.env"
+  # A release that failed only for want of this key may now be deployed again.
+  rm -f "$D/state/failed"
+  echo "replaced the placeholder access-token signing key"
 fi
 chmod 600 "$D/.env"
 
