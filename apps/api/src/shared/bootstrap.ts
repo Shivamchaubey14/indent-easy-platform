@@ -8,6 +8,8 @@ export function readConfig(): AppConfig {
     return loadConfig();
   } catch (err) {
     if (err instanceof ConfigError) {
+      // No logger exists yet: configuration is what a logger is built from.
+      // eslint-disable-next-line no-console
       console.error(err.message);
       process.exit(1);
     }

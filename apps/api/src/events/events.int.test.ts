@@ -113,20 +113,19 @@ describe('outbox relay', () => {
 });
 
 describe('consumer processing', () => {
-  const envelope = (aggregateId: string, version: number): DomainEvent =>
-    ({
-      eventId: randomUUID(),
-      eventType: 'IndentCreated',
-      eventVersion: 1,
-      occurredAt: new Date().toISOString(),
-      organizationId: ORG,
-      aggregateType: `TestIndent-${run}`,
-      aggregateId,
-      aggregateVersion: version,
-      actor: { type: 'SYSTEM' },
-      correlationId: 'test',
-      payload: { locationId: '0192a000-0000-7000-8000-0000000000b1', lineCount: 1 },
-    }) as DomainEvent;
+  const envelope = (aggregateId: string, version: number): DomainEvent => ({
+    eventId: randomUUID(),
+    eventType: 'IndentCreated',
+    eventVersion: 1,
+    occurredAt: new Date().toISOString(),
+    organizationId: ORG,
+    aggregateType: `TestIndent-${run}`,
+    aggregateId,
+    aggregateVersion: version,
+    actor: { type: 'SYSTEM' },
+    correlationId: 'test',
+    payload: { locationId: '0192a000-0000-7000-8000-0000000000b1', lineCount: 1 },
+  });
 
   it('processes an event once even if it is delivered twice', async () => {
     const consumer: Consumer = { ...eventLogConsumer, name: `test-dedupe-${run}` };
@@ -186,8 +185,9 @@ describe('consumer processing', () => {
           settings: { backoffStrategy: () => 10 },
         },
       );
-      worker.on('failed', async (job, err) => {
-        if (job && job.attemptsMade >= (job.opts.attempts ?? 1)) {
+      worker.on('failed', (job, err) => {
+        if (!job || job.attemptsMade < (job.opts.attempts ?? 1)) return;
+        void (async () => {
           await recordDeadLetter(
             pool,
             name,
@@ -197,7 +197,7 @@ describe('consumer processing', () => {
           );
           await worker.close();
           resolve();
-        }
+        })();
       });
     });
     await queue.add('IndentCreated', event, {

@@ -3,10 +3,11 @@ import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { applyLocale } from '../../i18n';
 import { ApiRequestError, gql, rest } from '../../lib/api';
+import type * as ApiModule from '../../lib/api';
 import { DashboardPage } from './DashboardPage';
 
 vi.mock('../../lib/api', async (original) => ({
-  ...(await original<typeof import('../../lib/api')>()),
+  ...(await original<typeof ApiModule>()),
   gql: vi.fn(),
   rest: vi.fn(),
 }));

@@ -169,11 +169,10 @@ const health = new Health(
   {
     database: () => pool.query('SELECT 1'),
     redis: () => redis.ping(),
-    relay: async () => {
-      if (!relay.lastRunAt || Date.now() - relay.lastRunAt > 10_000) {
-        throw new Error('outbox relay has not completed a pass in 10 s');
-      }
-    },
+    relay: () =>
+      relay.lastRunAt && Date.now() - relay.lastRunAt <= 10_000
+        ? Promise.resolve()
+        : Promise.reject(new Error('outbox relay has not completed a pass in 10 s')),
   },
   logger,
   500,

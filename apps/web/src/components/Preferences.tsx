@@ -2,6 +2,12 @@ import { useTranslation } from 'react-i18next';
 import { applyLocale, type Locale } from '../i18n';
 import { applyTheme, useUiStore, type ThemePreference } from '../stores/ui';
 
+/** Each language is named in its own script, whatever the current UI language. */
+const LANGUAGES: readonly (readonly [Locale, string])[] = [
+  ['en', 'EN'],
+  ['hi', 'हिं'],
+];
+
 export function LanguageToggle() {
   const { t } = useTranslation();
   const locale = useUiStore((s) => s.locale);
@@ -16,12 +22,7 @@ export function LanguageToggle() {
       aria-label={t('topbar.language')}
       className="inline-flex rounded-md border border-border-control"
     >
-      {(
-        [
-          ['en', 'EN'],
-          ['hi', 'हिं'],
-        ] as const
-      ).map(([value, label]) => (
+      {LANGUAGES.map(([value, label]) => (
         <button
           key={value}
           type="button"

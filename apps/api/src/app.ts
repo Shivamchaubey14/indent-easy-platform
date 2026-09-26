@@ -5,7 +5,7 @@ import express, { type Express } from 'express';
 import helmet from 'helmet';
 import type { GraphQLServer } from './graphql/server.js';
 import { REST_ROUTES, toExpressPath, type RestHandlers } from './rest/routes.js';
-import { Health, healthHandlers } from './shared/health.js';
+import { type Health, healthHandlers } from './shared/health.js';
 import { errorHandler, notFound } from './shared/http/problem.js';
 import { requestContext } from './shared/http/request-context.js';
 import type { Logger } from './shared/logging.js';

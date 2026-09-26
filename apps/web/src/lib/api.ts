@@ -3,7 +3,7 @@ import { ClientError, GraphQLClient } from 'graphql-request';
 import { useSessionStore } from '../stores/session';
 import { useUiStore } from '../stores/ui';
 
-const CLIENT_VERSION = import.meta.env['VITE_RELEASE'] ?? '0.1.0';
+const CLIENT_VERSION = (import.meta.env['VITE_RELEASE'] as string | undefined) ?? '0.1.0';
 
 /** Standard request headers (SRS §26.1): request ID, client identity, language, bearer token. */
 function headers(requestId: string): Record<string, string> {
@@ -41,13 +41,14 @@ export async function gql<TResult, TVariables extends Record<string, unknown>>(
   try {
     return await graphqlClient.request<TResult>({
       document,
-      variables: variables as TVariables,
+      variables,
       requestHeaders: headers(requestId),
     });
   } catch (err) {
     if (err instanceof ClientError) {
       const first = err.response.errors?.[0];
-      const code = String(first?.extensions?.['code'] ?? 'INTERNAL_ERROR');
+      const raw = first?.extensions?.['code'];
+      const code = typeof raw === 'string' ? raw : 'INTERNAL_ERROR';
       throw new ApiRequestError(
         first?.message ?? 'Request failed',
         code,
