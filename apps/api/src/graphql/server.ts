@@ -4,8 +4,10 @@ import { useDisableIntrospection } from '@graphql-yoga/plugin-disable-introspect
 import type { Request, Response } from 'express';
 import { Kind, parse } from 'graphql';
 import { createSchema, createYoga, type Plugin, type YogaServerInstance } from 'graphql-yoga';
-import { currentContext } from '../shared/context.js';
+import { currentContext, type Principal } from '../shared/context.js';
+import { ApiError } from '../shared/errors.js';
 import type { Logger } from '../shared/logging.js';
+import { enforceAccess } from './access.js';
 import type { GraphQLContext, Services } from './context.js';
 import { createErrorMask, notImplemented } from './errors.js';
 import { moduleResolvers, type Resolvers } from './resolvers.js';
@@ -41,7 +43,6 @@ export interface GraphQLServerOptions {
   logger: Logger;
   typeDefs: string;
   services: Services;
-  organizationId: () => Promise<string | undefined>;
 }
 
 type ServerContext = { req: Request; res: Response };
@@ -53,9 +54,8 @@ export function createGraphQLServer({
   logger,
   typeDefs,
   services,
-  organizationId,
 }: GraphQLServerOptions): GraphQLServer {
-  const resolvers = stubUnimplementedRootFields(typeDefs, moduleResolvers);
+  const resolvers = enforceAccess(typeDefs, stubUnimplementedRootFields(typeDefs, moduleResolvers));
   const plugins: Plugin[] = [
     EnvelopArmorPlugin({
       maxDepth: { n: config.graphql.maxDepth },
@@ -79,7 +79,31 @@ export function createGraphQLServer({
     context: () => {
       const request = currentContext();
       if (!request) throw new Error('GraphQL request is outside a request context');
-      return { request, organizationId, services };
+      return createContext(request, services);
     },
   });
+}
+
+/** Memoises a lazy value for the lifetime of one request. */
+function once<T>(load: () => Promise<T>): () => Promise<T> {
+  let value: Promise<T> | undefined;
+  return () => (value ??= load());
+}
+
+function createContext(
+  request: NonNullable<ReturnType<typeof currentContext>>,
+  services: Services,
+): GraphQLContext {
+  const viewer = (): Principal => {
+    if (!request.principal) throw new ApiError('AUTH_TOKEN_EXPIRED', 'Sign in to continue.');
+    return request.principal;
+  };
+  return {
+    request,
+    services,
+    viewer,
+    access: once(() => services.access(viewer())),
+    directory: once(() => services.directory(viewer().organizationId)),
+    organizationId: () => Promise.resolve(request.principal?.organizationId),
+  };
 }

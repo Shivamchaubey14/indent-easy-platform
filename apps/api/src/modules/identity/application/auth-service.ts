@@ -210,6 +210,35 @@ export class AuthService {
     return revoked.length;
   }
 
+  /** Signs out one of the caller's other devices (sessions screen, AUTH-010). */
+  async revokeOwnSession(principal: Principal, sessionId: string): Promise<boolean> {
+    const revoked = await this.deps.store.revokeOwnSession(
+      principal.userId,
+      sessionId,
+      'USER_REVOKED',
+    );
+    await this.deps.guards.revoke(revoked, this.accessTtlSeconds);
+    if (revoked.length)
+      await this.event({ type: 'SESSION_REVOKED', principal, details: { sessionId } });
+    return revoked.length > 0;
+  }
+
+  /** Signs out every device except the one making the request. */
+  async revokeOtherSessions(principal: Principal): Promise<number> {
+    const revoked = await this.deps.store.revokeAllSessions(
+      principal.userId,
+      'USER_REVOKED',
+      principal.sessionId,
+    );
+    await this.deps.guards.revoke(revoked, this.accessTtlSeconds);
+    await this.event({
+      type: 'SESSIONS_REVOKED',
+      principal,
+      details: { sessions: revoked.length },
+    });
+    return revoked.length;
+  }
+
   /**
    * Sends a reset link if the address belongs to an account that may sign in. The caller always
    * gets the same answer, and the e-mail goes out in the background so timing reveals nothing

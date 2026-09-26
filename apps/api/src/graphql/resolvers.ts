@@ -1,4 +1,6 @@
 import { configurationResolvers } from '../modules/configuration/index.js';
+import { identityResolvers } from '../modules/identity/index.js';
+import { organizationResolvers } from '../modules/organization/index.js';
 
 export type Resolvers = Record<string, Record<string, unknown>>;
 
@@ -12,7 +14,11 @@ function mergeResolvers(...maps: Resolvers[]): Resolvers {
 }
 
 /** Every module's resolvers. Add a module here when it implements part of the contract. */
-export const moduleResolvers: Resolvers = mergeResolvers(configurationResolvers);
+export const moduleResolvers: Resolvers = mergeResolvers(
+  configurationResolvers,
+  identityResolvers,
+  organizationResolvers,
+);
 
 export interface ImplementedOperations {
   query: string[];

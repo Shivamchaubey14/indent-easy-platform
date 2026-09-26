@@ -4,33 +4,17 @@ import { createApp } from './app.js';
 import { createGraphQLServer } from './graphql/server.js';
 import { postgresFeatureFlags } from './modules/configuration/index.js';
 import { createIdentity } from './modules/identity/index.js';
+import { loadDirectory } from './modules/organization/index.js';
+import { loadGrants } from './shared/authorization/index.js';
 import { migrationStatus } from '@ie/db';
-import { createPool, type Pool } from './shared/database.js';
+import { createPool } from './shared/database.js';
 import { Health } from './shared/health.js';
 import { processLogger, readConfig } from './shared/bootstrap.js';
-import { currentContext } from './shared/context.js';
 import { createMetrics, startMetricsServer } from './shared/metrics.js';
 import { createRedis } from './shared/redis.js';
 import { buildInfo } from './shared/version.js';
 
 const SHUTDOWN_GRACE_MS = 25_000;
-
-/**
- * Signed-in requests run in the caller's organisation. Anonymous GraphQL requests still fall back
- * to the deployment's single organisation until every operation requires sign-in (Phase 1.2).
- * Looked up lazily so the API can start while the database is still coming up.
- */
-function singleOrganization(pool: Pool): () => Promise<string | undefined> {
-  let cached: string | undefined;
-  return async () => {
-    if (cached) return cached;
-    const { rows } = await pool.query<{ id: string }>(
-      'SELECT id FROM org.organization ORDER BY created_at LIMIT 2',
-    );
-    if (rows.length === 1) cached = rows[0]?.id;
-    return cached;
-  };
-}
 
 const config = readConfig();
 const typeDefs = loadTypeDefs();
@@ -55,16 +39,20 @@ const health = new Health(
   logger,
 );
 
-const fallbackOrganization = singleOrganization(pool);
+const identity = await createIdentity({ config, pool, redis, logger });
 const graphql = createGraphQLServer({
   config,
   logger,
   typeDefs,
-  services: { featureFlags: postgresFeatureFlags(pool) },
-  organizationId: async () => currentContext()?.principal?.organizationId ?? fallbackOrganization(),
+  services: {
+    featureFlags: postgresFeatureFlags(pool),
+    identity: identity.queries,
+    directory: (organizationId) => loadDirectory(pool, organizationId),
+    access: (principal) => loadGrants(pool, principal, config.timezone),
+    denied: identity.recordDenied,
+  },
 });
 
-const identity = await createIdentity({ config, pool, redis, logger });
 const app = createApp({ config, logger, metrics, health, graphql, buildInfo: info, identity });
 const server = createServer(app);
 const metricsServer = startMetricsServer(metrics, config.http.metricsPort, logger);

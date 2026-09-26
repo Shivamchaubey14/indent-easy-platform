@@ -269,6 +269,13 @@ export class PostgresIdentity {
     );
   }
 
+  /** Revokes one of the user's own sessions; nothing happens for anyone else's. */
+  revokeOwnSession(userId: string, sessionId: string, reason: string): Promise<string[]> {
+    return inTransaction(this.pool, (client) =>
+      revokeSessions(client, 'id = $1 AND user_id = $2', [sessionId, userId], reason),
+    );
+  }
+
   /** Revokes every open session of a user, optionally keeping one (the caller's). */
   revokeAllSessions(userId: string, reason: string, keep?: string): Promise<string[]> {
     return inTransaction(this.pool, (client) =>
@@ -382,6 +389,41 @@ export class PostgresIdentity {
       ),
     );
     return rows[0]!.id;
+  }
+
+  /**
+   * Gives a user a role (by code), optionally limited to locations (by code). Bumps
+   * `roles_version`, so tokens issued before the change are refused and refreshed (§30.3).
+   */
+  async assignRole(input: {
+    organizationId: string;
+    userId: string;
+    roleCode: string;
+    locationCodes: readonly string[];
+  }): Promise<void> {
+    await withOrgContext(this.pool, input.organizationId, async (client) => {
+      const role = await client.query<{ id: string }>(
+        'SELECT id FROM identity.role WHERE code = $1',
+        [input.roleCode],
+      );
+      if (!role.rows[0]) throw new Error(`unknown role ${input.roleCode}`);
+      const locations = await client.query<{ id: string; code: string }>(
+        'SELECT id, code FROM org.location WHERE code = ANY($1)',
+        [input.locationCodes],
+      );
+      const missing = input.locationCodes.filter((c) => !locations.rows.some((l) => l.code === c));
+      if (missing.length) throw new Error(`unknown location codes: ${missing.join(', ')}`);
+      await client.query(
+        `INSERT INTO identity.user_role (user_id, role_id, scope_location_ids)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (user_id, role_id) DO UPDATE SET scope_location_ids = EXCLUDED.scope_location_ids`,
+        [input.userId, role.rows[0].id, locations.rows.map((l) => l.id)],
+      );
+      await client.query(
+        'UPDATE identity.app_user SET roles_version = roles_version + 1 WHERE id = $1',
+        [input.userId],
+      );
+    });
   }
 
   /** Security events (§33) and the sign-in history. Never blocks the request on failure. */

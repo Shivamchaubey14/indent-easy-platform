@@ -4,7 +4,7 @@ Single source of truth for where the build stands. Update the checklist and the 
 end of every session. Roadmap phases come from SRS §62; timelines are not estimated there.
 
 **Current phase:** 1 — Identity & Admin
-**Next task:** 1.2 authorization: role templates and the Appendix C permission seed per organisation, scoped role assignments, `authorize()`, the `me` query, and sign-in required for GraphQL. PRs #14 (component library), #15 (mobile) and #16 (authentication) are stacked; merge in order. Before #16 reaches DEV, re-run `infrastructure/deploy/install.sh DEV` (see docs/runbooks/auth.md).
+**Next task:** 1.3 web sign-in: session store, silent refresh shared across tabs, route guards, sign-out, forgot/reset/change-password screens, `me` in the app shell. PRs #14, #15, #16 and #17 (authorization) are stacked; merge in order. Before #16 reaches DEV, re-run `infrastructure/deploy/install.sh DEV` (see docs/runbooks/auth.md). Until 1.3 lands, the web dashboard's feature-flag card shows an error, because GraphQL now requires sign-in.
 
 **Repo:** https://github.com/Shivamchaubey14/indent-easy-platform (public). `main` and `dev` are protected. Branches are `feature/*` → PR → `dev`, and `dev` → PR → `main` at phase milestones. The owner merges PRs; they are not merged from the build session.
 
@@ -50,7 +50,7 @@ end of every session. Roadmap phases come from SRS §62; timelines are not estim
 ## Phase 1 checklist
 
 - [x] 1.1 Authentication API (PR #16): sign-in by e-mail or employee code, Argon2id (upgraded on sign-in when parameters rise), lockout after 5 failures in 15 min, per-IP and per-account limits (Redis), ES256 access tokens (10 min) with JWKS and key rotation, rotating refresh tokens with reuse detection (web: HttpOnly cookie + signed double-submit CSRF; mobile: body), sign-out and sign-out everywhere with an immediate Redis deny-list, password reset by e-mail (30 min, single use, EN/HI), password change, temporary passwords that must be replaced, security and sign-in events. Password rules: 12–128 characters, not built from the user's e-mail or employee code, not breached (Have I Been Pwned, k-anonymity). `pnpm user:create` for the first administrator. Runbook: `docs/runbooks/auth.md`. MFA (AUTH-014) and session listing (AUTH-010) are later "Should" items.
-- [ ] 1.2 Authorization: role templates + Appendix C permission seed per organisation, scoped role assignments, `authorize()` (RBAC + scope + policy), `me` query with permissions, sign-in required for GraphQL, `roles_version` checks
+- [x] 1.2 Authorization (PR #17): the twelve system role templates with the Appendix C permissions for every organisation (migration `0003_role_templates`, also run by the dev seed); `Grants` + `authorize()` (RBAC + location/department/category scope, out-of-scope → NOT_FOUND) in `apps/api/src/shared/authorization`; every GraphQL operation needs sign-in, `@auth(requires)` is enforced before resolvers run and refusals are logged; tokens older than the last role change are refused so clients refresh; `me` (roles with scopes, permissions, home workspace), `mySessions`, `revokeSession`, `revokeAllMySessions`; `locations`, `departments`, `designations` for signed-in users. `pnpm user:grant` assigns roles. Grants load from PostgreSQL on each request (one query); a Redis cache can come later if needed.
 - [ ] 1.3 Web sign-in: session store, silent refresh (one refresh across tabs), route guards, sign-out, forgot/reset/change password screens
 - [ ] 1.4 Mobile sign-in: refresh token in SecureStore, app lock after background
 - [ ] 1.5 Admin console: users (invite, roles, scopes, deactivate, reset), roles, locations, departments, designations
@@ -173,4 +173,10 @@ end of every session. Roadmap phases come from SRS §62; timelines are not estim
 - Password reset links carry the token in the URL fragment, so it never reaches server or proxy logs.
 - Rate limits and the deny-list fail open if Redis is down (logged); lockouts and revocations are also in PostgreSQL, so the gap is at most one access-token lifetime.
 - Local admin for development: `admin@shwetdhara.local` (password shared in the session, local database only).
+
+### 2026-09-26: authorization
+- Role scope semantics: an empty scope array means organisation-wide. The admin console (1.5) should default store users' assignments to their own locations.
+- `revokeAllMySessions` keeps the current session (a "sign out other devices" action); REST `logout-all` signs out every device including this one.
+- Product-category scopes are stored and enforced, but `scopeCategories` resolves to an empty list until the catalogue exists (1.6).
+- The local admin has SUPER_ADMIN.
 

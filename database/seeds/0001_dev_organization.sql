@@ -7,6 +7,9 @@ VALUES ('0192a000-0000-7000-8000-000000000001', 'Shwetdhara MPCL',
         'Shwetdhara Milk Producer Company Limited', 'INR', 'Asia/Kolkata')
 ON CONFLICT (id) DO NOTHING;
 
+-- The twelve system role templates with their default permissions (migration 0003).
+SELECT identity.seed_role_templates('0192a000-0000-7000-8000-000000000001');
+
 INSERT INTO config.feature_flag (organization_id, key, enabled, description)
 SELECT '0192a000-0000-7000-8000-000000000001', f.key, f.enabled, f.description
 FROM (VALUES
