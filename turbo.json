@@ -14,9 +14,6 @@
       "cache": false,
       "persistent": true
     },
-    "lint": {
-      "dependsOn": ["^build", "codegen"]
-    },
     "typecheck": {
       "dependsOn": ["^build", "codegen"]
     },

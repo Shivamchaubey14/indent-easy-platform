@@ -1,6 +1,7 @@
 {
   "name": "indent-easy",
   "private": true,
+  "type": "module",
   "packageManager": "pnpm@10.34.5",
   "engines": {
     "node": ">=22"
@@ -8,7 +9,7 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
-    "lint": "turbo run lint",
+    "lint": "eslint --cache --cache-location node_modules/.cache/eslint .",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "format": "prettier --write .",
@@ -33,11 +34,20 @@
     "scheduler:dev": "pnpm --filter @ie/api dev:scheduler"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "@redocly/cli": "^2.54.2",
     "@types/node": "^24.13.6",
+    "eslint": "^9.39.5",
+    "eslint-import-resolver-typescript": "^4.4.5",
+    "eslint-plugin-boundaries": "^7.2.0",
+    "eslint-plugin-i18next": "^6.1.5",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.12.0",
     "prettier": "^3.6.0",
     "turbo": "^2.5.0",
     "typescript": "^5.9.0",
+    "typescript-eslint": "^8.70.1",
     "vitest": "^5.0.1"
   },
   "pnpm": {
