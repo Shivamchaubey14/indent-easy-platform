@@ -1,7 +1,15 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { ReactNode } from 'react';
-import { Pressable, View, type ViewProps } from 'react-native';
-import { radius, space, TOUCH_TARGET, useColors } from '../theme';
+import {
+  ActivityIndicator,
+  Pressable,
+  TextInput,
+  type TextInputProps,
+  View,
+  type ViewProps,
+} from 'react-native';
+import { useUiStore } from '../stores/ui';
+import { fontFor, radius, space, TOUCH_TARGET, useColors } from '../theme';
 import { Text } from './Text';
 
 /** A bordered surface for a group of related content. */
@@ -92,35 +100,122 @@ export function Button({
   label,
   onPress,
   variant = 'primary',
+  busy = false,
+  block = false,
 }: {
   label: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary';
+  variant?: 'primary' | 'secondary' | 'ghost';
+  /** Shows a spinner and ignores presses while an action runs. */
+  busy?: boolean;
+  /** Full width (forms). */
+  block?: boolean;
 }) {
   const colors = useColors();
   const [background, foreground] =
     variant === 'primary'
       ? [colors.primary, colors['primary-foreground']]
-      : [colors.secondary, colors['secondary-foreground']];
+      : variant === 'secondary'
+        ? [colors.secondary, colors['secondary-foreground']]
+        : ['transparent', colors.link];
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityState={{ busy, disabled: busy }}
+      disabled={busy}
       onPress={onPress}
       style={({ pressed }) => ({
         minHeight: TOUCH_TARGET,
+        flexDirection: 'row',
+        gap: space['2'],
         justifyContent: 'center',
         alignItems: 'center',
-        alignSelf: 'flex-start',
+        alignSelf: block ? 'stretch' : 'flex-start',
         paddingHorizontal: space['6'],
         borderRadius: radius.md,
         backgroundColor: background,
-        opacity: pressed ? 0.85 : 1,
+        opacity: pressed || busy ? 0.8 : 1,
       })}
     >
+      {busy && <ActivityIndicator color={foreground} />}
       <Text weight="semibold" style={{ color: foreground }}>
         {label}
       </Text>
     </Pressable>
+  );
+}
+
+/**
+ * Labelled text input with its error below (SRS §41 A11Y-005 on mobile): the label and error are
+ * part of the input's accessible description, and "required" is said in words.
+ */
+export function TextField({
+  label,
+  value,
+  onChangeText,
+  error,
+  hint,
+  requiredLabel,
+  secure = false,
+  ...input
+}: {
+  label: string;
+  value: string;
+  onChangeText: (value: string) => void;
+  error?: string | undefined;
+  hint?: string | undefined;
+  /** The word for "required", shown after the label. */
+  requiredLabel?: string;
+  secure?: boolean;
+} & Pick<
+  TextInputProps,
+  | 'autoComplete'
+  | 'textContentType'
+  | 'keyboardType'
+  | 'autoCapitalize'
+  | 'onSubmitEditing'
+  | 'returnKeyType'
+>) {
+  const colors = useColors();
+  const locale = useUiStore((s) => s.locale);
+  const title = requiredLabel ? `${label} (${requiredLabel})` : label;
+  return (
+    <View style={{ gap: space['1'] }}>
+      <Text variant="bodySm" weight="medium">
+        {title}
+      </Text>
+      {hint && (
+        <Text variant="caption" color="text-secondary">
+          {hint}
+        </Text>
+      )}
+      <TextInput
+        accessibilityLabel={title}
+        accessibilityHint={error ?? hint}
+        value={value}
+        onChangeText={onChangeText}
+        secureTextEntry={secure}
+        autoCorrect={false}
+        placeholderTextColor={colors['text-tertiary']}
+        style={{
+          minHeight: TOUCH_TARGET,
+          borderWidth: 1,
+          borderColor: error ? colors.danger : colors['border-control'],
+          borderRadius: radius.md,
+          paddingHorizontal: space['3'],
+          backgroundColor: colors['surface-input'],
+          color: colors['text-primary'],
+          fontFamily: fontFor(locale, 'regular').fontFamily,
+          fontSize: 16,
+        }}
+        {...input}
+      />
+      {error && (
+        <Text variant="bodySm" style={{ color: colors['danger-text'] }} accessibilityRole="alert">
+          {error}
+        </Text>
+      )}
+    </View>
   );
 }
 
