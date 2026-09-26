@@ -50,36 +50,42 @@ const cases = [
   },
   {
     what: 'hard-coded user-facing text in JSX',
-    file: 'apps/web/src/features/dashboard/zz-lint-probe.tsx',
+    file: 'apps/web/src/features/dashboard/zz-lint-probe-jsx.tsx',
     code: 'export const Probe = () => <p>Hello there</p>;\n',
     rule: 'i18next/no-literal-string',
   },
   {
     what: 'a promise is neither awaited nor handled',
-    file: 'apps/api/src/shared/zz-lint-probe.ts',
+    file: 'apps/api/src/shared/zz-lint-probe-promise.ts',
     code: 'async function work(): Promise<void> {}\nexport function probe(): void {\n  work();\n}\n',
     rule: '@typescript-eslint/no-floating-promises',
   },
 ];
 
+// Write every probe first, then lint them in one pass. typescript-eslint's project service
+// caches each tsconfig's file list per process, so a file created after its project was loaded
+// may not be seen. Each probe needs its own basename: TypeScript drops x.tsx when x.ts exists.
 let failed = 0;
-for (const c of cases) {
-  mkdirSync(dirname(c.file), { recursive: true });
-  writeFileSync(c.file, c.code);
-  try {
-    const [result] = await new ESLint().lintFiles([c.file]);
-    const rules = result.messages.map((m) => m.ruleId ?? `parse error: ${m.message}`);
+try {
+  for (const c of cases) {
+    mkdirSync(dirname(c.file), { recursive: true });
+    writeFileSync(c.file, c.code);
+  }
+  const results = await new ESLint().lintFiles(cases.map((c) => c.file));
+  for (const c of cases) {
+    const result = results.find((r) => r.filePath.replaceAll('\\', '/').endsWith(c.file));
+    const rules = (result?.messages ?? []).map((m) => m.ruleId ?? `parse error: ${m.message}`);
     if (rules.includes(c.rule)) {
       console.log(`ok   ${c.what}`);
     } else {
       failed++;
       console.log(`FAIL ${c.what}: expected ${c.rule}, got ${JSON.stringify(rules)}`);
     }
-  } finally {
-    rmSync(c.file);
   }
+} finally {
+  for (const c of cases) rmSync(c.file, { force: true });
+  rmSync('apps/api/src/modules/configuration/domain', { recursive: true, force: true });
 }
-rmSync('apps/api/src/modules/configuration/domain', { recursive: true, force: true });
 
 if (failed) {
   console.error(`::error::${failed} lint rule check(s) failed`);
