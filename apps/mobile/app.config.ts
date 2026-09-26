@@ -11,7 +11,17 @@ const config: ExpoConfig = {
   userInterfaceStyle: 'automatic',
   android: { package: 'in.shwetdhara.indenteasy' },
   ios: { bundleIdentifier: 'in.shwetdhara.indenteasy' },
-  plugins: ['expo-router', 'expo-font', 'expo-sqlite', 'expo-localization'],
+  plugins: [
+    'expo-router',
+    'expo-font',
+    'expo-sqlite',
+    'expo-localization',
+    'expo-secure-store',
+    [
+      'expo-local-authentication',
+      { faceIDPermission: 'Unlock Indent Easy with Face ID after it has been in the background.' },
+    ],
+  ],
 };
 
 export default config;
