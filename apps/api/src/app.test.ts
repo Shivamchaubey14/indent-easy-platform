@@ -3,7 +3,9 @@ import { loadTypeDefs } from '@ie/graphql/schema';
 import { pino } from 'pino';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
+import type { RequestHandler } from 'express';
 import { createApp } from './app.js';
+import type { AuthOperationId } from './modules/identity/index.js';
 import { createGraphQLServer } from './graphql/server.js';
 import { Health } from './shared/health.js';
 import { createMetrics } from './shared/metrics.js';
@@ -23,6 +25,29 @@ const config = loadConfig({
 });
 const logger = pino({ level: process.env['TEST_LOG'] ?? 'silent' });
 const typeDefs = loadTypeDefs();
+
+// Sign-in itself is covered by the integration tests against PostgreSQL and Redis.
+const notUsed: RequestHandler = (_req, res) => {
+  res.status(501).end();
+};
+const anonymousIdentity = {
+  authenticate: ((_req, _res, next) => next()) as RequestHandler,
+  handlers: Object.fromEntries(
+    (
+      [
+        'login',
+        'refreshToken',
+        'getCsrfToken',
+        'logout',
+        'logoutAll',
+        'forgotPassword',
+        'resetPassword',
+        'changePassword',
+        'getJwks',
+      ] as const
+    ).map((id) => [id, notUsed]),
+  ) as Record<AuthOperationId, RequestHandler>,
+};
 
 function build(options: { databaseUp?: boolean; organizationId?: string } = {}) {
   const { databaseUp = true, organizationId = 'org-1' } = options;
@@ -59,6 +84,7 @@ function build(options: { databaseUp?: boolean; organizationId?: string } = {}) 
       health,
       graphql,
       buildInfo: buildInfo(typeDefs),
+      identity: anonymousIdentity,
     }),
   };
 }

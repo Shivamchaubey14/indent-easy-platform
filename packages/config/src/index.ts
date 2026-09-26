@@ -13,6 +13,26 @@ const commaList = z.string().transform((v) =>
     .filter(Boolean),
 );
 
+/**
+ * Access-token signing keys: comma-separated `kid:<base64 PKCS#8 DER>` ES256 (P-256) private keys.
+ * The first signs new tokens; all of them verify, so a new key can be added before the old one
+ * is retired (SRS §30.1).
+ */
+const signingKeys = optionalText.pipe(
+  z
+    .string()
+    .regex(/^[\w-]{1,32}:[A-Za-z0-9+/]+={0,2}(,[\w-]{1,32}:[A-Za-z0-9+/]+={0,2})*$/, {
+      message: 'expected kid:<base64 PKCS#8 key>[,kid:<key>...]',
+    })
+    .transform((value) =>
+      value.split(',').map((entry) => {
+        const [kid = '', pkcs8] = entry.split(':');
+        return { kid, pkcs8: pkcs8 ?? '' };
+      }),
+    )
+    .optional(),
+);
+
 /** Raw environment contract (SRS §55.2). Names match the variables exactly. */
 export const envSchema = z
   .object({
@@ -37,9 +57,12 @@ export const envSchema = z
     S3_ACCESS_KEY_ID: optionalText,
     S3_SECRET_ACCESS_KEY: optionalText,
 
-    JWT_SIGNING_KEYS: optionalText,
+    JWT_SIGNING_KEYS: signingKeys,
     JWT_ACCESS_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(600),
     CSRF_SECRET: optionalText,
+    // `hibp` checks new passwords against Have I Been Pwned's k-anonymity range API (only a
+    // 5-character hash prefix leaves the server); `off` skips the check (tests, air-gapped hosts).
+    PASSWORD_BREACH_CHECK: z.enum(['hibp', 'off']).default('hibp'),
 
     SMTP_HOST: z.string().min(1),
     SMTP_PORT: port.default(587),
@@ -123,6 +146,7 @@ function toConfig(env: Env) {
       jwtSigningKeys: env.JWT_SIGNING_KEYS,
       accessTtlSeconds: env.JWT_ACCESS_TTL_SECONDS,
       csrfSecret: env.CSRF_SECRET,
+      breachCheck: env.PASSWORD_BREACH_CHECK,
     },
     mail: {
       host: env.SMTP_HOST,

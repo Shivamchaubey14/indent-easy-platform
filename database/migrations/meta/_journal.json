@@ -15,6 +15,13 @@
       "when": 1790247566750,
       "tag": "0001_app_role",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790387910284,
+      "tag": "0002_auth_lookup",
+      "breakpoints": true
     }
   ]
 }

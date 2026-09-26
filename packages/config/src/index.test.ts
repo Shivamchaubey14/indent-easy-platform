@@ -87,4 +87,18 @@ describe('loadConfig', () => {
       'SuperSecret123',
     );
   });
+
+  it('parses access-token signing keys, newest first', () => {
+    const config = loadConfig({ ...base, JWT_SIGNING_KEYS: 'k2:QUJD,k1:REVG' });
+    expect(config.auth.jwtSigningKeys).toEqual([
+      { kid: 'k2', pkcs8: 'QUJD' },
+      { kid: 'k1', pkcs8: 'REVG' },
+    ]);
+  });
+
+  it('rejects a signing key that is not kid:key', () => {
+    expect(problemsOf({ ...base, JWT_SIGNING_KEYS: 'just-a-random-secret' })).toEqual([
+      'JWT_SIGNING_KEYS: expected kid:<base64 PKCS#8 key>[,kid:<key>...]',
+    ]);
+  });
 });

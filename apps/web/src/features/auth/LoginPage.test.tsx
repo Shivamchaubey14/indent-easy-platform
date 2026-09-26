@@ -19,21 +19,9 @@ describe('LoginPage', () => {
     renderPage();
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
     expect(await screen.findAllByText('This field is required.')).toHaveLength(2);
-    expect(screen.getByRole('textbox', { name: 'E-mail address (required)' })).toHaveAttribute(
-      'aria-invalid',
-      'true',
-    );
-  });
-
-  it('rejects an invalid e-mail address', async () => {
-    renderPage();
-    await userEvent.type(
-      screen.getByRole('textbox', { name: 'E-mail address (required)' }),
-      'not-an-email',
-    );
-    await userEvent.type(screen.getByLabelText(/^Password/), 'secret');
-    await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
-    expect(await screen.findByText('Enter a valid e-mail address.')).toBeInTheDocument();
+    expect(
+      screen.getByRole('textbox', { name: 'E-mail or employee code (required)' }),
+    ).toHaveAttribute('aria-invalid', 'true');
   });
 
   it('switches to Hindi, including validation messages', async () => {
@@ -49,7 +37,7 @@ describe('LoginPage', () => {
   it('explains that sign-in is not available yet, without sending anything', async () => {
     renderPage();
     await userEvent.type(
-      screen.getByRole('textbox', { name: 'E-mail address (required)' }),
+      screen.getByRole('textbox', { name: 'E-mail or employee code (required)' }),
       'store@shwetdhara.in',
     );
     await userEvent.type(screen.getByLabelText(/^Password/), 'secret');
