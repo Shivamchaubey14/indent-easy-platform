@@ -3,8 +3,8 @@
 Single source of truth for where the build stands. Update the checklist and the session log at the
 end of every session. Roadmap phases come from SRS §62; timelines are not estimated there.
 
-**Current phase:** 0 — Foundation
-**Next task:** Phase 1 (identity & admin), starting with authentication. PR #14 (component library) and PR #15 (mobile) are stacked; merge in order.
+**Current phase:** 1 — Identity & Admin
+**Next task:** 1.2 authorization: role templates and the Appendix C permission seed per organisation, scoped role assignments, `authorize()`, the `me` query, and sign-in required for GraphQL. PRs #14 (component library), #15 (mobile) and #16 (authentication) are stacked; merge in order. Before #16 reaches DEV, re-run `infrastructure/deploy/install.sh DEV` (see docs/runbooks/auth.md).
 
 **Repo:** https://github.com/Shivamchaubey14/indent-easy-platform (public). `main` and `dev` are protected. Branches are `feature/*` → PR → `dev`, and `dev` → PR → `main` at phase milestones. The owner merges PRs; they are not merged from the build session.
 
@@ -12,8 +12,8 @@ end of every session. Roadmap phases come from SRS §62; timelines are not estim
 
 | # | Phase | Status |
 |---|---|---|
-| 0 | Foundation — monorepo, local infra, skeleton apps, CI, design tokens, i18n scaffold | **In progress** |
-| 1 | Identity & Admin — auth, users/roles/permissions, masters, number series, audit, settings, flags | — |
+| 0 | Foundation — monorepo, local infra, skeleton apps, CI, design tokens, i18n scaffold | **Done** (exit criteria still wait on OQ-003/004) |
+| 1 | Identity & Admin — auth, users/roles/permissions, masters, number series, audit, settings, flags | **In progress** |
 | 2 | Indent & Approval — indent module, workflow engine, delegation/SLA, approval notifications | — |
 | 3 | Purchase & Vendor — procurement queue, PO, SAP PO import, vendor mail + delivery schedule | — |
 | 4 | Inventory & Transfer — ledger, stock views, counts, adjustments, STN, Sale & Stock Report | — |
@@ -46,6 +46,17 @@ end of every session. Roadmap phases come from SRS §62; timelines are not estim
 - [x] 0.16 Deployment (PR #9): VM stack `infrastructure/deploy/` (Postgres, Redis, migrator, API) + deploy agent (systemd timer, follows the dev/qa/prod tag, auto-rollback). CI pushes `sha-<commit>` and moves `dev`; `release.yml` promotes rc tags to QA and release tags to PROD (with approval and an identical-to-rc check). GitHub environments dev/qa/production/docs created, production needs the owner's approval. **Tested live on DEV** with a registry inside the VM: first deploy, a broken release rolled back, an upgrade, a timer-driven deploy and a reboot. Still to do: GHCR publishing runs for real only after merge; installing on QA/PROD (`install.sh QA|PROD`); PROD backups off-host.
 
 **Exit criteria (§62):** a hello-world request goes through the whole pipeline; OQ-003, OQ-004, and OQ-022 are closed.
+
+## Phase 1 checklist
+
+- [x] 1.1 Authentication API (PR #16): sign-in by e-mail or employee code, Argon2id (upgraded on sign-in when parameters rise), lockout after 5 failures in 15 min, per-IP and per-account limits (Redis), ES256 access tokens (10 min) with JWKS and key rotation, rotating refresh tokens with reuse detection (web: HttpOnly cookie + signed double-submit CSRF; mobile: body), sign-out and sign-out everywhere with an immediate Redis deny-list, password reset by e-mail (30 min, single use, EN/HI), password change, temporary passwords that must be replaced, security and sign-in events. Password rules: 12–128 characters, not built from the user's e-mail or employee code, not breached (Have I Been Pwned, k-anonymity). `pnpm user:create` for the first administrator. Runbook: `docs/runbooks/auth.md`. MFA (AUTH-014) and session listing (AUTH-010) are later "Should" items.
+- [ ] 1.2 Authorization: role templates + Appendix C permission seed per organisation, scoped role assignments, `authorize()` (RBAC + scope + policy), `me` query with permissions, sign-in required for GraphQL, `roles_version` checks
+- [ ] 1.3 Web sign-in: session store, silent refresh (one refresh across tabs), route guards, sign-out, forgot/reset/change password screens
+- [ ] 1.4 Mobile sign-in: refresh token in SecureStore, app lock after background
+- [ ] 1.5 Admin console: users (invite, roles, scopes, deactivate, reset), roles, locations, departments, designations
+- [ ] 1.6 Masters: products, UOM and conversions, vendors, MPPs, external codes
+- [ ] 1.7 Number series, settings, feature-flag admin, audit viewer
+- [ ] 1.8 Legacy master-data migration (M1), incl. the OQ-025 decision on legacy password hashes
 
 ## Open business questions that block progress
 
@@ -154,4 +165,12 @@ end of every session. Roadmap phases come from SRS §62; timelines are not estim
 - Expo's recommended TypeScript is 6.0, which then became the auto-installed peer for other packages too, and TS 6 no longer loads Node's types by default (`@ie/graphql` stopped building). The whole repo is pinned to TypeScript 5.9 with a pnpm override; moving to 6 is a separate, repo-wide change.
 - React Native 0.86 ships React 19.2 while the web app is on 19.3; each app has its own copy. React Native Testing Library stays on 13 (14 needs React 19.3).
 - In development the app finds the API on the computer that served the bundle (port 4000), so a phone on the same Wi-Fi needs no configuration. `EXPO_PUBLIC_API_URL` overrides it.
+
+### 2026-09-26: authentication
+- Sign-in has to find an account before any organisation is known, but row-level security hides users outside `app.org_id`. Migration `0002_auth_lookup` adds two narrow owner-defined functions (identifier → user and organisation; user → organisation) granted to the app role; everything else runs inside the organisation's context.
+- `JWT_SIGNING_KEYS` is now `kid:<base64 PKCS#8>` ES256 keys. The VM installer generates one and replaces the old random placeholder; existing VMs need `install.sh` re-run before this release reaches them.
+- Refresh cookie is `Secure` only under https. The VMs are still plain HTTP: TLS on the VMs is an open item before real users sign in there.
+- Password reset links carry the token in the URL fragment, so it never reaches server or proxy logs.
+- Rate limits and the deny-list fail open if Redis is down (logged); lockouts and revocations are also in PostgreSQL, so the gap is at most one access-token lifetime.
+- Local admin for development: `admin@shwetdhara.local` (password shared in the session, local database only).
 
