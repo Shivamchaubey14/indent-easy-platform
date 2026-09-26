@@ -34,6 +34,11 @@ jobs:
         run: pnpm format:check
       - name: Typecheck, unit tests and build
         run: pnpm turbo run typecheck test build
+      # After the build: type-aware rules read the packages' generated .d.ts files.
+      - name: Lint (correctness, architecture boundaries, i18n)
+        run: pnpm lint
+      - name: The architecture rules still reject what they must
+        run: node scripts/ci/check-lint-rules.mjs
       - name: OpenAPI contract lint
         run: pnpm contracts:lint
       - name: No colour literals outside the design tokens

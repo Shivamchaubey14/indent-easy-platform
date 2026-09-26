@@ -1,4 +1,4 @@
-import type { FeatureFlagReader } from '../modules/configuration/feature-flags.js';
+import type { FeatureFlagReader } from '../modules/configuration/index.js';
 import type { RequestContext } from '../shared/context.js';
 
 export interface Services {

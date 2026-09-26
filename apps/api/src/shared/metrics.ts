@@ -34,9 +34,9 @@ export function accessLog(logger: Logger, metrics: Metrics): RequestHandler {
     res.on('finish', () => {
       const durationMs = Math.round(performance.now() - started);
       // Use the matched route pattern, never the raw path, to keep label cardinality bounded.
-      const route = req.route?.path
-        ? `${req.baseUrl}${String(req.route.path)}`
-        : req.baseUrl || 'unmatched';
+      const matched = (req.route as { path?: unknown } | undefined)?.path;
+      const route =
+        typeof matched === 'string' ? `${req.baseUrl}${matched}` : req.baseUrl || 'unmatched';
       metrics.httpDuration.observe(
         { method: req.method, route, status_code: String(res.statusCode) },
         durationMs / 1000,

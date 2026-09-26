@@ -5,10 +5,13 @@
  */
 import { migrationStatus, runMigrations } from '@ie/db';
 import pg from 'pg';
+import { pino } from 'pino';
+
+const logger = pino({ base: { service: 'migrator' }, timestamp: pino.stdTimeFunctions.isoTime });
 
 const url = process.env['MIGRATION_DATABASE_URL'];
 if (!url) {
-  console.error('MIGRATION_DATABASE_URL (the schema owner connection) is required');
+  logger.fatal('MIGRATION_DATABASE_URL (the schema owner connection) is required');
   process.exit(1);
 }
 
@@ -17,21 +20,8 @@ try {
   const pool = new pg.Pool({ connectionString: url, max: 1 });
   const status = await migrationStatus(pool);
   await pool.end();
-  console.log(
-    JSON.stringify({
-      level: 'info',
-      msg: 'migrations up to date',
-      applied: status.applied,
-      latest: status.expected,
-    }),
-  );
+  logger.info({ applied: status.applied, latest: status.expected }, 'migrations up to date');
 } catch (err) {
-  console.error(
-    JSON.stringify({
-      level: 'fatal',
-      msg: 'migration failed',
-      error: err instanceof Error ? err.message : String(err),
-    }),
-  );
+  logger.fatal({ err }, 'migration failed');
   process.exit(1);
 }

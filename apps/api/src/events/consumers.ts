@@ -30,7 +30,7 @@ export const eventLogConsumer: Consumer = {
   events: '*',
   ordered: false,
   concurrency: 4,
-  async handle(event, { logger }) {
+  handle(event, { logger }) {
     logger.info(
       {
         eventId: event.eventId,
@@ -44,6 +44,7 @@ export const eventLogConsumer: Consumer = {
       },
       'domain event',
     );
+    return Promise.resolve();
   },
 };
 
