@@ -5,6 +5,15 @@
       "inputs": ["schema/**", "codegen.yml", "scripts/**"],
       "outputs": ["src/generated/**"]
     },
+    "@ie/web#codegen": {
+      "inputs": [
+        "src/**/*.{ts,tsx}",
+        "!src/generated/**",
+        "codegen.ts",
+        "$TURBO_ROOT$/packages/graphql/schema/**"
+      ],
+      "outputs": ["src/generated/**"]
+    },
     "build": {
       "dependsOn": ["^build", "codegen"],
       "outputs": ["dist/**"]
