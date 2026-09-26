@@ -1,6 +1,10 @@
-import { Link } from '@tanstack/react-router';
+import { Button, Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '@ie/ui';
+import { useQuery } from '@tanstack/react-query';
+import { Link, useNavigate } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { signOut } from '../lib/auth';
+import { meQuery } from '../lib/me';
 import { useUiStore } from '../stores/ui';
 import { LanguageToggle, ThemeSelect } from './Preferences';
 
@@ -77,12 +81,46 @@ export function AppShell({ children }: { children: ReactNode }) {
         <header className="sticky top-0 z-10 flex h-14 items-center justify-end gap-3 border-b border-border bg-surface px-4">
           <ThemeSelect />
           <LanguageToggle />
-          <Link to="/login" className="text-body-sm text-link underline-offset-2 hover:underline">
-            {t('login.title')}
-          </Link>
+          <AccountMenu />
         </header>
         <main className="mx-auto w-full max-w-[1440px] flex-1 p-4 md:p-8">{children}</main>
       </div>
     </div>
+  );
+}
+
+/** Who is signed in, with password change and sign-out. */
+function AccountMenu() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const me = useQuery(meQuery);
+  const name = me.data?.displayName ?? t('auth.account');
+  return (
+    <Menu>
+      <MenuTrigger asChild>
+        <Button variant="ghost" size="sm" aria-label={t('auth.signedInAs', { name })}>
+          <span
+            aria-hidden="true"
+            className="grid size-7 place-items-center rounded-full bg-secondary text-caption font-semibold text-secondary-foreground"
+          >
+            {name.slice(0, 1).toUpperCase()}
+          </span>
+          <span className="hidden max-w-40 truncate sm:inline">{name}</span>
+        </Button>
+      </MenuTrigger>
+      <MenuContent>
+        {me.data && (
+          <div className="px-3 py-2 text-body-sm text-text-secondary">
+            <div className="truncate font-medium text-text-primary">{me.data.displayName}</div>
+            <div className="truncate">{me.data.email}</div>
+          </div>
+        )}
+        <MenuSeparator />
+        <MenuItem onSelect={() => void navigate({ to: '/change-password' })}>
+          {t('auth.changePassword')}
+        </MenuItem>
+        <MenuItem onSelect={() => void signOut()}>{t('auth.signOut')}</MenuItem>
+      </MenuContent>
+    </Menu>
   );
 }

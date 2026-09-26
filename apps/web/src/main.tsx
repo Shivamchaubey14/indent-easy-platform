@@ -5,6 +5,7 @@ import { createRoot } from 'react-dom/client';
 import { UiProviders } from './components/UiProviders';
 import { routeTree } from './generated/routeTree.gen';
 import { applyLocale } from './i18n';
+import { onSignedOut } from './lib/auth';
 import { ApiRequestError } from './lib/api';
 import { applyTheme, useUiStore } from './stores/ui';
 import './styles.css';
@@ -28,6 +29,13 @@ declare module '@tanstack/react-router' {
     router: typeof router;
   }
 }
+
+// When the session ends (sign-out here or in another tab, or a refused refresh), forget every
+// cached server answer and go to sign-in.
+onSignedOut(() => {
+  queryClient.clear();
+  void router.navigate({ to: '/login' });
+});
 
 // Restore persisted preferences before the first paint.
 const { theme, locale } = useUiStore.getState();
