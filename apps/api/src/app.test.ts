@@ -5,7 +5,8 @@ import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import type { RequestHandler } from 'express';
 import { createApp } from './app.js';
-import type { AuthOperationId } from './modules/identity/index.js';
+import type { AdminQueries, AuthOperationId } from './modules/identity/index.js';
+import type { Services } from './graphql/context.js';
 import { createGraphQLServer } from './graphql/server.js';
 import { Grants } from './shared/authorization/index.js';
 import { currentContext, type Principal } from './shared/context.js';
@@ -101,6 +102,14 @@ function build(options: BuildOptions = {}) {
         revokeOwnSession: () => Promise.resolve(false),
         revokeOtherSessions: () => Promise.resolve(0),
       },
+      admin: {
+        service: {} as AdminQueries['service'],
+        listUsers: () => Promise.reject(new Error('not used')),
+        users: () => Promise.resolve([]),
+        roles: () => Promise.resolve([]),
+        permissionCatalogue: () => Promise.resolve([]),
+      },
+      organizationAdmin: {} as Services['organizationAdmin'],
       directory: () => Promise.reject(new Error('not used')),
       access: (p) =>
         options.rolesChanged
@@ -244,9 +253,12 @@ describe('GraphQL', () => {
   });
 
   it('answers unimplemented operations with NOT_IMPLEMENTED once access is granted', async () => {
-    const res = await gql(build({ permissions: ['admin:role_manage'] }).app, '{ roles { id } }');
+    const res = await gql(
+      build({ permissions: ['report:read_store'] }).app,
+      '{ dashboard { __typename } }',
+    );
     expect(res.body.errors[0]).toMatchObject({
-      message: 'Query.roles is not available yet.',
+      message: 'Query.dashboard is not available yet.',
       extensions: { code: 'NOT_IMPLEMENTED' },
     });
   });

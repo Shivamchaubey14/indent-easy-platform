@@ -2,6 +2,7 @@ import type { GraphQLContext } from '../../graphql/context.js';
 import type { LocationRecord, WarehouseRecord } from './directory.js';
 
 export { type Directory, loadDirectory, type LocationRecord } from './directory.js';
+export { organizationAdmin, organizationAdminResolvers, type OrganizationAdmin } from './admin.js';
 
 /**
  * Organisation reference data every signed-in user may read (pick lists, labels). Changing it is

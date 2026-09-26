@@ -1,6 +1,9 @@
 import { configurationResolvers } from '../modules/configuration/index.js';
-import { identityResolvers } from '../modules/identity/index.js';
-import { organizationResolvers } from '../modules/organization/index.js';
+import { adminResolvers, identityResolvers } from '../modules/identity/index.js';
+import {
+  organizationAdminResolvers,
+  organizationResolvers,
+} from '../modules/organization/index.js';
 
 export type Resolvers = Record<string, Record<string, unknown>>;
 
@@ -17,7 +20,9 @@ function mergeResolvers(...maps: Resolvers[]): Resolvers {
 export const moduleResolvers: Resolvers = mergeResolvers(
   configurationResolvers,
   identityResolvers,
+  adminResolvers,
   organizationResolvers,
+  organizationAdminResolvers,
 );
 
 export interface ImplementedOperations {

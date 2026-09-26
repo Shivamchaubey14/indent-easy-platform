@@ -8,6 +8,7 @@ import { currentContext, type Principal } from '../shared/context.js';
 import { ApiError } from '../shared/errors.js';
 import type { Logger } from '../shared/logging.js';
 import { enforceAccess } from './access.js';
+import type { Directory } from '../modules/organization/index.js';
 import type { GraphQLContext, Services } from './context.js';
 import { createErrorMask, notImplemented } from './errors.js';
 import { moduleResolvers, type Resolvers } from './resolvers.js';
@@ -98,12 +99,16 @@ function createContext(
     if (!request.principal) throw new ApiError('AUTH_TOKEN_EXPIRED', 'Sign in to continue.');
     return request.principal;
   };
+  let directory: Promise<Directory> | undefined;
   return {
     request,
     services,
     viewer,
     access: once(() => services.access(viewer())),
-    directory: once(() => services.directory(viewer().organizationId)),
+    directory: () => (directory ??= services.directory(viewer().organizationId)),
+    invalidateDirectory: () => {
+      directory = undefined;
+    },
     organizationId: () => Promise.resolve(request.principal?.organizationId),
   };
 }

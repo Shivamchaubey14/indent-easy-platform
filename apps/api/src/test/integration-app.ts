@@ -11,7 +11,7 @@ import { createApp } from '../app.js';
 import { createGraphQLServer } from '../graphql/server.js';
 import { postgresFeatureFlags } from '../modules/configuration/index.js';
 import { createIdentity, type MailMessage } from '../modules/identity/index.js';
-import { loadDirectory } from '../modules/organization/index.js';
+import { loadDirectory, organizationAdmin } from '../modules/organization/index.js';
 import { loadGrants } from '../shared/authorization/index.js';
 import { Health } from '../shared/health.js';
 import { createMetrics } from '../shared/metrics.js';
@@ -49,6 +49,7 @@ export async function integrationApp() {
     pool,
     redis,
     logger,
+    directory: (organizationId) => loadDirectory(pool, organizationId),
     mailer: { send: (message) => (outbox.push(message), Promise.resolve()) },
   });
   const typeDefs = loadTypeDefs();
@@ -64,6 +65,8 @@ export async function integrationApp() {
       services: {
         featureFlags: postgresFeatureFlags(pool),
         identity: identity.queries,
+        admin: identity.admin,
+        organizationAdmin: organizationAdmin(pool),
         directory: (organizationId) => loadDirectory(pool, organizationId),
         access: (principal) => loadGrants(pool, principal, config.timezone),
         denied: identity.recordDenied,

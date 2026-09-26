@@ -37,3 +37,33 @@ export function resetPasswordMail(to: Recipient, link: string, minutes: number):
     ].join('\n'),
   };
 }
+
+/** Invitation for a new user to choose their first password (USR-001). */
+export function inviteMail(to: Recipient, link: string, hours: number): MailMessage {
+  if (to.locale === 'hi') {
+    return {
+      to: to.email,
+      subject: 'इंडेंट ईज़ी: आपका खाता तैयार है',
+      text: [
+        `नमस्ते ${to.displayName},`,
+        '',
+        'आपके लिए इंडेंट ईज़ी खाता बनाया गया है। अपना पासवर्ड चुनने के लिए यह लिंक खोलें:',
+        link,
+        '',
+        `यह लिंक ${hours} घंटे तक और केवल एक बार काम करेगा। इसके बाद आप अपने ई-मेल पते से साइन इन कर सकते हैं।`,
+      ].join('\n'),
+    };
+  }
+  return {
+    to: to.email,
+    subject: 'Indent Easy: your account is ready',
+    text: [
+      `Hello ${to.displayName},`,
+      '',
+      'An Indent Easy account has been created for you. Open this link to choose your password:',
+      link,
+      '',
+      `The link works once, for ${hours} hours. After that, sign in with your e-mail address.`,
+    ].join('\n'),
+  };
+}

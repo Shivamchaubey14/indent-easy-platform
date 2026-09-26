@@ -2,6 +2,19 @@
 
 How sign-in works is in SRS §30. This page covers what operators do.
 
+## A fresh environment
+
+A new database has no organisation, so nobody can sign in. Create it once (safe to repeat; it
+refuses to add a second organisation):
+
+```sh
+pnpm org:bootstrap --name "Shwetdhara MPCL" --legal-name "Shwetdhara Milk Producer Company Limited"
+# on a VM, in /opt/indent-easy
+docker compose run --rm api dist/cli/bootstrap-organization.js --name "Shwetdhara MPCL" --legal-name "..."
+```
+
+It also adds the twelve system role templates. Then create the first administrator below.
+
 ## The first administrator
 
 Nobody can sign in until an account exists. Create the first one from the command line; the
