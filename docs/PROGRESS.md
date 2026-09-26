@@ -4,7 +4,7 @@ Single source of truth for where the build stands. Update the checklist and the 
 end of every session. Roadmap phases come from SRS §62; timelines are not estimated there.
 
 **Current phase:** 0 — Foundation
-**Next task:** 0.8 worker + scheduler (BullMQ, outbox relay, leader lock), then 0.12 ESLint + boundaries. PRs #1–#9 are merged into `dev`; #10 (web app) and #11 (ship web) are open and stacked. Merge #10 first. Required checks on `dev`/`main`: format/types/tests/build, database, API image. Add "Web image build and scan" to the required checks once #11 is merged.
+**Next task:** 0.12 ESLint + boundary rules, then Phase 1 (identity & admin: login, users, roles, permissions, masters, audit). PRs #10, #11 and #12 are open and stacked (web app → ship web → worker). Merge in order. After #11 merges, add "Web image build and scan" to the required checks.
 
 **Repo:** https://github.com/Shivamchaubey14/indent-easy-platform (public). `main` and `dev` are protected. Branches are `feature/*` → PR → `dev`, and `dev` → PR → `main` at phase milestones. The owner merges PRs; they are not merged from the build session.
 
@@ -33,7 +33,7 @@ end of every session. Roadmap phases come from SRS §62; timelines are not estim
 - [x] 0.5 Shared packages: `tsconfig`, `config` (Zod env loader), `graphql` (move schema + codegen), `validation`, `domain-types`, `events` (TS types from JSON Schema). PR #1
 - [x] 0.6 `apps/api` skeleton: Express 5 + GraphQL Yoga, `/health/{live,ready,startup}`, Pino, graceful shutdown, DB + Redis clients (PR #3)
 - [x] 0.7 Drizzle: `@ie/db` package, `0000_baseline` + `0001_app_role` migrations, `ie_app` role so RLS applies, readiness gated on migrations, 9 integration tests (PR #5). Runbook: `docs/runbooks/database.md`
-- [ ] 0.8 `apps/worker` + `apps/scheduler` skeletons — BullMQ, outbox relay stub, leader lock
+- [x] 0.8 Worker + scheduler (PR #12), as extra entry points of the API image (SRS §44.1): outbox relay (NOTIFY + 1 s poll, SKIP LOCKED), a BullMQ queue per consumer, inbox dedupe, per-aggregate ordering via consumer_position, retries 5 s…30 min, dead letters, maintenance jobs (outbox/inbox prune, lag alert), and a Redis leader lock for the scheduler. `appendEvent` validates against the event contract. 13 unit + 6 integration tests; verified locally and on the DEV VM. Still to do: the admin dead-letter replay (with the admin console).
 - [x] 0.9 `apps/web` (PR #10): Vite 8 + React 19, TanStack Router (file-based) + Query, typed GraphQL (client-preset codegen), Zustand (ui persisted, session in memory), Tailwind 4 on the design tokens, GSAP entrance via `useEnter` (token ease, reduced motion respected), i18next EN/HI (defaults to the browser's language). Screens: app shell, dashboard with live API/DB status and feature flags, and a login screen (auth is Phase 1). First-load JS 131.6 KB gzip of a 250 KB budget.
 - [x] 0.9b Ship the web app (PR #11): NGINX web image (unprivileged, read-only, strict CSP, SPA fallback, immutable asset caching), two API replicas (`api-a`, `api-b`) behind it, and a rolling deploy agent for both images. CI builds, scans and boot-tests api and web as a matrix and promotes both. **Tested live on DEV**: API release with 0 failed requests (67/67), broken API release with 0 failed (492/492) plus rollback, web-only release ~0.6 s gap, one-time layout switch ~8 s.
 - [~] 0.10 `packages/design-tokens` done (PR #10): W3C tokens → CSS vars (light/dark/system, reduced motion) + a typed object for React Native; 14 WCAG contrast pairs tested. `packages/ui` (Radix primitives, Storybook) still to do; minimal primitives live in `apps/web/src/components/ui.tsx` for now.
@@ -128,3 +128,9 @@ end of every session. Roadmap phases come from SRS §62; timelines are not estim
 - Test mistake of mine: after the broken-API test I retagged only web, so the "web test" re-deployed the broken API (correctly rolled back). Reran properly: web-only release costs ~0.6 s.
 - DEV now follows GHCR for both images. Until #11 merges there is no `indent-easy-web:dev`, so the agent logs "cannot pull" and keeps the current release. DEV is powered off.
 - First CI run of #11 failed the web image scan: the full `nginx-unprivileged:1.29-alpine` had 38 High CVEs (curl, c-ares, OpenSSL, libxml2...). Switched to `alpine-slim` + `apk upgrade`: 0 High/Critical and 10 MB instead of 23. hadolint also rejects `USER root` (DL3066); use `USER 0`.
+
+### 2026-09-25: worker and scheduler
+- BullMQ 6.3 (ioredis is a peer dependency; connection passed as options with `maxRetriesPerRequest: null`). BullMQ's group ordering is a paid tier, so per-aggregate ordering uses `events.consumer_position`, per the SRS rule.
+- Local run: an event inserted into the outbox was processed within about 1 s (NOTIFY). Metrics and health are served on the metrics port. Scheduler failover after a hard kill took about 15 s (the lock TTL). A normal stop releases the lock, so takeover is within 5 s.
+- DEV VM: the agent added worker and scheduler to the running stack (35 s; all 7 services healthy; about 800 MB used of 1.9 GB). The event flowed through the VM's own database; the leader registered the schedules and the minute lag check ran.
+- CI's database job now has a Redis service (the API integration tests need it). Turbo passes REDIS_URL through.

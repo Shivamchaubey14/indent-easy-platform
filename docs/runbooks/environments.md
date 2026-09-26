@@ -121,7 +121,7 @@ Each VM runs this stack:
 
 ```text
 :80 ─► web (NGINX: the app + proxy) ─► api-a ┐
-                                     └► api-b ┴─► postgres, redis
+                                     └► api-b ┴─► postgres, redis ◄─ worker, scheduler
 ```
 
 The agent follows this environment's tag (`dev`, `qa` or `prod`) for **both** images, the API and
@@ -129,7 +129,8 @@ the web tier. When either points at a new digest it rolls the release out one pi
 
 1. runs the migrator, if the API image changed
 2. replaces `api-a` and waits until it is healthy, then does the same for `api-b`. One replica
-   always serves; NGINX retries a request on the other replica if it hits one mid-restart
+   always serves; NGINX retries a request on the other replica if it hits one mid-restart. Then
+   it replaces `worker` and `scheduler`; events wait safely in the outbox while the worker restarts
 3. replaces `web`, if the web image changed
 4. checks `/health/ready` through the web tier
 5. if any step fails, **rolls the previous pair of digests back out** the same way. The failed pair

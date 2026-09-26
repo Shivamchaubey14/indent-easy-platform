@@ -12,7 +12,10 @@
     "build": "tsc -p tsconfig.build.json && node scripts/api-surface.mjs",
     "start": "node --env-file-if-exists=../../.env dist/main.js",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "dev:worker": "tsx watch --env-file-if-exists=../../.env src/worker.ts",
+    "dev:scheduler": "tsx watch --env-file-if-exists=../../.env src/scheduler.ts"
   },
   "dependencies": {
     "@escape.tech/graphql-armor": "^3.2.0",
@@ -20,7 +23,9 @@
     "@ie/config": "workspace:*",
     "@ie/db": "workspace:*",
     "@ie/domain-types": "workspace:*",
+    "@ie/events": "workspace:*",
     "@ie/graphql": "workspace:*",
+    "bullmq": "^6.3.8",
     "compression": "^1.8.2",
     "cors": "^2.8.6",
     "drizzle-orm": "^0.45.3",

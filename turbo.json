@@ -27,7 +27,7 @@
     "test:integration": {
       "dependsOn": ["^build", "codegen"],
       "cache": false,
-      "passThroughEnv": ["DATABASE_URL", "MIGRATION_DATABASE_URL"]
+      "passThroughEnv": ["DATABASE_URL", "MIGRATION_DATABASE_URL", "REDIS_URL"]
     }
   },
   "globalPassThroughEnv": ["GITHUB_SHA", "CI"]
