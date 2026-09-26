@@ -21,7 +21,37 @@ characters, must not contain the user's e-mail name or employee code, and must n
 breaches (checked through Have I Been Pwned's k-anonymity API; only a 5-character hash prefix
 leaves the server). There are no composition rules.
 
-Roles and scopes for that user come with the authorization step of Phase 1.
+Then give the user a role:
+
+```sh
+pnpm user:grant --email you@shwetdhara.in --role SUPER_ADMIN
+pnpm user:grant --email store@shwetdhara.in --role STORE_USER --locations BMC-01,BMC-02
+# on a VM
+docker compose run --rm api dist/cli/grant-role.js --email ... --role ...
+```
+
+## Roles and permissions
+
+Every organisation has twelve system role templates (SRS §10.1, Appendix C, migration
+`0003_role_templates`): SUPER_ADMIN, ADMIN, HOD, PURCHASE_HEAD, PURCHASE_USER, FINANCE_ADMIN,
+FINANCE_USER, LOGISTICS_USER, MANAGEMENT, AUDITOR, CLUSTER_MIS and STORE_USER. A user can hold
+several; the start page comes from the highest-precedence one.
+
+- A role assignment can be limited to locations, departments and product categories. **An empty
+  scope means the whole organisation**, so give store users their locations.
+- Changing a user's roles bumps their `roles_version`. Access tokens issued before that are refused
+  (`AUTH_TOKEN_EXPIRED`, reason `ROLES_CHANGED`) and the client refreshes, so a change applies on
+  the user's next request.
+- Every GraphQL operation needs a signed-in user. Operations marked `@auth(requires: ...)` in the
+  schema also need that permission; refusals are recorded as `ACCESS_DENIED` security events.
+- A user with a temporary password can only read `me` until they change it.
+
+```sql
+-- who has which roles
+SELECT u.email, r.code, ur.scope_location_ids
+FROM identity.user_role ur JOIN identity.app_user u ON u.id = ur.user_id
+JOIN identity.role r ON r.id = ur.role_id ORDER BY u.email;
+```
 
 ## Signing keys
 
