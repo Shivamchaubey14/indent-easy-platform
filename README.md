@@ -45,6 +45,20 @@ pnpm worker:dev    # event relay, consumers and maintenance jobs
 | MinIO console | http://localhost:9001               |
 | Mailpit       | http://localhost:8025               |
 
+## Code quality
+
+```sh
+pnpm lint          # ESLint: correctness, architecture boundaries, i18n (from the repo root)
+pnpm typecheck
+pnpm test          # unit tests
+pnpm test:integration   # needs `pnpm infra:up` and `pnpm db:reset`
+```
+
+Architecture rules are part of lint. Packages never import apps. A web feature never reaches
+into another feature. API code outside a module uses only its `index.ts`, and the domain layer
+imports no frameworks. `scripts/ci/check-lint-rules.mjs` proves each of these still rejects a
+planted violation.
+
 ## Repository layout
 
 ```text
