@@ -3158,6 +3158,30 @@ type LocationPayload {
   userErrors: [UserError!]!
 }
 
+"Creates a department (no id) or renames one."
+input SaveDepartmentInput {
+  id: ID
+  code: String!
+  name: String!
+}
+
+type DepartmentPayload {
+  department: Department
+  userErrors: [UserError!]!
+}
+
+"Creates a designation (no id) or renames one."
+input SaveDesignationInput {
+  id: ID
+  code: String!
+  name: String!
+}
+
+type DesignationPayload {
+  designation: Designation
+  userErrors: [UserError!]!
+}
+
 input UpdateSettingInput {
   key: String!
   value: JSON!
@@ -3989,6 +4013,10 @@ type Mutation {
     @auth(requires: "vendor:map_products")
   saveMpp(input: SaveMppInput!): MppPayload! @auth(requires: "mpp:manage")
   saveLocation(input: SaveLocationInput!): LocationPayload! @auth(requires: "admin:master_manage")
+  saveDepartment(input: SaveDepartmentInput!): DepartmentPayload!
+    @auth(requires: "admin:master_manage")
+  saveDesignation(input: SaveDesignationInput!): DesignationPayload!
+    @auth(requires: "admin:master_manage")
   updateSetting(input: UpdateSettingInput!): SettingPayload!
     @auth(requires: "admin:settings_manage")
   updateNumberSeries(input: UpdateNumberSeriesInput!): NumberSeriesPayload!

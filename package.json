@@ -25,6 +25,7 @@
     "api:dev": "pnpm --filter @ie/api dev",
     "user:create": "pnpm --filter @ie/api exec tsx src/cli/create-user.ts",
     "user:grant": "pnpm --filter @ie/api exec tsx src/cli/grant-role.ts",
+    "org:bootstrap": "pnpm --filter @ie/api exec tsx src/cli/bootstrap-organization.ts",
     "db:migrate": "pnpm --filter @ie/db build && node --env-file-if-exists=.env packages/db/scripts/migrate.mjs",
     "db:generate": "pnpm --filter @ie/db exec drizzle-kit generate",
     "test:integration": "turbo run test:integration",

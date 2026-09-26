@@ -4,6 +4,7 @@ import { Link, useNavigate } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { signOut } from '../lib/auth';
+import { canAdminister } from '../lib/access';
 import { meQuery } from '../lib/me';
 import { useUiStore } from '../stores/ui';
 import { LanguageToggle, ThemeSelect } from './Preferences';
@@ -19,13 +20,17 @@ const NAV = [
   { key: 'mppSales', enabled: false },
   { key: 'finance', enabled: false },
   { key: 'reports', enabled: false },
-  { key: 'admin', enabled: false },
+  { key: 'admin', to: '/admin', enabled: 'admin' },
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const collapsed = useUiStore((s) => s.navCollapsed);
   const toggleNav = useUiStore((s) => s.toggleNav);
+  const me = useQuery(meQuery);
+  const permissions = me.data?.permissions ?? [];
+  // Administration appears only for people who can use it; unbuilt workspaces show as "soon".
+  const nav = NAV.filter((item) => item.enabled !== 'admin' || canAdminister(permissions));
 
   return (
     <div className="flex min-h-screen bg-background text-text-primary">
@@ -45,13 +50,13 @@ export function AppShell({ children }: { children: ReactNode }) {
           {!collapsed && <span className="font-semibold">{t('app.name')}</span>}
         </div>
         <ul className="flex-1 space-y-1 p-2">
-          {NAV.map((item) => (
+          {nav.map((item) => (
             <li key={item.key}>
               {item.enabled ? (
                 <Link
                   to={item.to}
                   className="flex h-10 items-center rounded-md px-3 text-text-secondary hover:bg-surface-muted [&.active]:bg-secondary [&.active]:font-semibold [&.active]:text-secondary-foreground"
-                  activeOptions={{ exact: true }}
+                  activeOptions={{ exact: item.to === '/' }}
                 >
                   {collapsed ? t(`nav.${item.key}`).slice(0, 1) : t(`nav.${item.key}`)}
                 </Link>

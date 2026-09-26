@@ -6,7 +6,17 @@ export { Button, type ButtonProps, type ButtonSize, type ButtonVariant } from '.
 export { Card } from './Card';
 export { cn } from './cn';
 export { Dialog, type DialogProps } from './Dialog';
-export { Field, TextInput, type ControlProps, type FieldProps, type TextInputProps } from './Field';
+export {
+  Checkbox,
+  type CheckboxProps,
+  type ControlProps,
+  Field,
+  type FieldProps,
+  SelectInput,
+  type SelectInputProps,
+  TextInput,
+  type TextInputProps,
+} from './Field';
 export { Loading, Skeleton } from './Loading';
 export { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from './Menu';
 export { motion, prefersReducedMotion, useEnter } from './motion';

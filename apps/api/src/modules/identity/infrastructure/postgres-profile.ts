@@ -114,7 +114,13 @@ export class PostgresProfiles {
     private readonly timezone: string,
   ) {}
 
-  user(organizationId: string, userId: string): Promise<UserRecord | null> {
+  async user(organizationId: string, userId: string): Promise<UserRecord | null> {
+    return (await this.users(organizationId, [userId]))[0] ?? null;
+  }
+
+  /** Users by id, in the order given (missing ids are skipped). Two queries for any number. */
+  users(organizationId: string, userIds: readonly string[]): Promise<UserRecord[]> {
+    if (userIds.length === 0) return Promise.resolve([]);
     return withOrgContext(this.pool, organizationId, async (client) => {
       const users = await client.query<UserRow>(
         `SELECT u.id, u.email, u.mobile_e164 AS mobile, u.display_name, u.employee_code,
@@ -133,13 +139,11 @@ export class PostgresProfiles {
          LEFT JOIN identity.app_user m ON m.id = u.reports_to_id
          LEFT JOIN identity.app_user c ON c.id = u.created_by
          LEFT JOIN identity.app_user p ON p.id = u.updated_by
-         WHERE u.id = $1`,
-        [userId],
+         WHERE u.id = ANY($1)`,
+        [userIds],
       );
-      const row = users.rows[0];
-      if (!row) return null;
-      const roles = await client.query<RoleRow>(
-        `SELECT r.id, r.code, r.name, r.description, r.is_system, r.home_workspace,
+      const roles = await client.query<RoleRow & { user_id: string }>(
+        `SELECT ur.user_id, r.id, r.code, r.name, r.description, r.is_system, r.home_workspace,
                 ARRAY(SELECT rp.permission_code FROM identity.role_permission rp
                       WHERE rp.role_id = r.id ORDER BY 1) AS permissions,
                 (SELECT count(*)::int FROM identity.user_role x WHERE x.role_id = r.id) AS user_count,
@@ -152,50 +156,22 @@ export class PostgresProfiles {
                   AND (ur.valid_to IS NULL OR ur.valid_to >= (now() AT TIME ZONE $2)::date)
                   AS effective
          FROM identity.user_role ur JOIN identity.role r ON r.id = ur.role_id
-         WHERE ur.user_id = $1
+         WHERE ur.user_id = ANY($1)
          ORDER BY r.home_priority, r.code`,
-        [userId, this.timezone],
+        [userIds, this.timezone],
       );
-      return {
-        id: row.id,
-        email: row.email,
-        mobile: row.mobile,
-        displayName: row.display_name,
-        employeeCode: row.employee_code,
-        designationId: row.designation_id,
-        departmentId: row.department_id,
-        primaryLocationId: row.primary_location_id,
-        locationIds: row.location_ids,
-        deliveryPointCode: row.delivery_point_code,
-        preferredLocale: row.preferred_locale,
-        status: row.status,
-        reportsTo: ref(row.manager_id, row.manager_name, row.manager_code),
-        mfaEnabled: row.mfa_enabled,
-        lastLoginAt: iso(row.last_login_at),
-        createdAt: row.created_at.toISOString(),
-        createdBy: ref(row.creator_id, row.creator_name, row.creator_code),
-        updatedAt: iso(row.updated_at),
-        updatedBy: ref(row.updater_id, row.updater_name, row.updater_code),
-        version: row.version,
-        roles: roles.rows.map((r) => ({
-          role: {
-            id: r.id,
-            code: r.code,
-            name: r.name,
-            description: r.description,
-            isSystem: r.is_system,
-            permissions: r.permissions,
-            userCount: r.user_count,
-          },
-          homeWorkspace: r.home_workspace,
-          scopeLocationIds: r.scope_location_ids,
-          scopeDepartmentIds: r.scope_department_ids,
-          scopeCategoryIds: r.scope_category_ids,
-          validFrom: r.valid_from,
-          validTo: r.valid_to,
-          effective: r.effective,
-        })),
-      };
+      const byId = new Map(users.rows.map((row) => [row.id, row]));
+      return userIds.flatMap((userId) => {
+        const row = byId.get(userId);
+        return row
+          ? [
+              toUserRecord(
+                row,
+                roles.rows.filter((r) => r.user_id === userId),
+              ),
+            ]
+          : [];
+      });
     });
   }
 
@@ -225,4 +201,47 @@ export class PostgresProfiles {
       lastSeenAt: r.last_seen_at.toISOString(),
     }));
   }
+}
+
+function toUserRecord(row: UserRow, roles: RoleRow[]): UserRecord {
+  return {
+    id: row.id,
+    email: row.email,
+    mobile: row.mobile,
+    displayName: row.display_name,
+    employeeCode: row.employee_code,
+    designationId: row.designation_id,
+    departmentId: row.department_id,
+    primaryLocationId: row.primary_location_id,
+    locationIds: row.location_ids,
+    deliveryPointCode: row.delivery_point_code,
+    preferredLocale: row.preferred_locale,
+    status: row.status,
+    reportsTo: ref(row.manager_id, row.manager_name, row.manager_code),
+    mfaEnabled: row.mfa_enabled,
+    lastLoginAt: iso(row.last_login_at),
+    createdAt: row.created_at.toISOString(),
+    createdBy: ref(row.creator_id, row.creator_name, row.creator_code),
+    updatedAt: iso(row.updated_at),
+    updatedBy: ref(row.updater_id, row.updater_name, row.updater_code),
+    version: row.version,
+    roles: roles.map((r) => ({
+      role: {
+        id: r.id,
+        code: r.code,
+        name: r.name,
+        description: r.description,
+        isSystem: r.is_system,
+        permissions: r.permissions,
+        userCount: r.user_count,
+      },
+      homeWorkspace: r.home_workspace,
+      scopeLocationIds: r.scope_location_ids,
+      scopeDepartmentIds: r.scope_department_ids,
+      scopeCategoryIds: r.scope_category_ids,
+      validFrom: r.valid_from,
+      validTo: r.valid_to,
+      effective: r.effective,
+    })),
+  };
 }
