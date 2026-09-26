@@ -54,9 +54,29 @@ Waivers go in `.trivyignore`, one CVE per line with a reason, an owner and an ex
 fixing: the base image moved from Debian 12 to Debian 13 because the Debian 12 distroless image
 still shipped an OpenSSL with one Critical and five High CVEs.
 
+## Web image
+
+`infrastructure/docker/web.Dockerfile` builds the SPA and serves it with unprivileged NGINX (UID 101,
+read-only root filesystem, `/tmp` as tmpfs). About 10 MB compressed. The base is the `alpine-slim`
+variant with `apk upgrade` at build time: the full Alpine variant shipped curl and c-ares with 38 High
+CVEs, and the web tier needs neither (its health check uses busybox `wget`). `infrastructure/docker/nginx/nginx.conf`:
+
+- proxies `/graphql`, `/api/`, `/health/` and `/.well-known/` to the `api-a` and `api-b` replicas.
+  Their names are re-resolved every 5 s, because replicas get a new address when recreated.
+  A refused connection is retried on the other replica, so rolling the API is invisible to users.
+- SPA fallback to `index.html`. `/assets/*` is cached for a year (hashed names); `index.html` is
+  always revalidated, so a new release loads immediately.
+- security headers on every response, including a strict Content-Security-Policy (`'self'` only)
+- `X-Request-ID` is passed through, or generated, so one ID follows a request from browser to API
+- JSON access logs to stdout; `/healthz` is the web tier's own liveness check
+
+The stock entrypoint rewrites config files at start, which a read-only filesystem forbids, so the
+image starts `nginx` directly.
+
+CI builds, scans and boot-tests both images in one matrix job ("API image build and scan" and
+"Web image build and scan"), and promotes them together.
+
 ## Not yet built
 
-- **web** (NGINX serving the SPA): arrives with `apps/web` (step 0.9).
-- **worker** and **scheduler**: arrive with step 0.8. They'll reuse this image with different
+- **worker** and **scheduler**: arrive with step 0.8. They'll reuse the API image with different
   commands.
-- Publishing to a registry (GHCR) and deploying to the DEV/QA/PROD VMs: step 0.16.

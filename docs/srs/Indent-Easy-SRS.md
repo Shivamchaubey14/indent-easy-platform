@@ -4459,7 +4459,7 @@ flowchart LR
 | Host | Windows machine running Hyper-V. Interim: development laptop (2 cores, 8 GB RAM), which can run about two environment VMs at a time. Target: office Windows server, specs pending (OQ-022) |
 | VMs | `DEV`, `QA`, `PROD`: Ubuntu 26.04 LTS cloud image, Gen 2, Secure Boot, 2 vCPU, dynamic memory 0.5–2 GB, 30–40 GB dynamic VHDX, provisioned by cloud-init (`infrastructure/vm/`) |
 | Network | Internal switch `IE-Env` 192.168.50.0/24 with host NAT; static IPs .11/.12/.13; names `dev/qa/prod.indent-easy.local` in the host's hosts file; ufw allows only 22, 80 and 443 |
-| Per-VM stack | Docker Compose: `web` (NGINX serving the SPA and proxying `/graphql` and `/api`), `api`, `worker`, `scheduler`, PostgreSQL 16, Redis 7, MinIO, plus Mailpit on DEV/QA only |
+| Per-VM stack | Docker Compose: `web` (NGINX serving the SPA and proxying `/graphql` and `/api`) in front of **two API replicas** (`api-a`, `api-b`) rolled one at a time, so API releases cause no downtime; `worker`, `scheduler`, PostgreSQL 16, Redis 7, MinIO, plus Mailpit on DEV/QA only |
 | Deploy agent | systemd timer following the environment's registry tag (§43.3) |
 | Backups | PROD: nightly `pg_dump` and MinIO mirror copied off the VM to a Windows share and then off the host (§51). A laptop is not a durable place for production data (R-18) |
 

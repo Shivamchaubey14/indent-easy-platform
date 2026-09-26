@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Installs or updates the Indent Easy stack and deploy agent on one environment VM.
 #
-#   infrastructure/deploy/install.sh DEV            # uses ghcr.io/shivamchaubey14/indent-easy-api
-#   IE_IMAGE_REPO=localhost:5000/indent-easy-api infrastructure/deploy/install.sh DEV
+#   infrastructure/deploy/install.sh DEV                              # images from ghcr.io
+#   IE_REGISTRY=localhost:5000 infrastructure/deploy/install.sh DEV   # e.g. a test registry
 #
 # Safe to re-run: it copies the stack files and systemd units, but never overwrites the VM's
 # secrets (.env) or data. Secrets are generated on the VM itself and never leave it.
@@ -11,7 +11,9 @@ set -euo pipefail
 ENV_NAME=${1:?usage: install.sh DEV|QA|PROD}
 ENV_NAME=$(printf '%s' "$ENV_NAME" | tr '[:lower:]' '[:upper:]')
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
-IMAGE_REPO=${IE_IMAGE_REPO:-ghcr.io/shivamchaubey14/indent-easy-api}
+REGISTRY=${IE_REGISTRY:-ghcr.io/shivamchaubey14}
+API_REPO=${IE_API_REPO:-$REGISTRY/indent-easy-api}
+WEB_REPO=${IE_WEB_REPO:-$REGISTRY/indent-easy-web}
 KEY=${IE_SSH_KEY:-$HOME/.ssh/indent_easy_vms}
 
 read -r IP DOMAIN ADMIN < <(node -e '
@@ -28,21 +30,21 @@ SCP=(scp -q -i "$KEY" -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10)
 INTROSPECTION=false
 [ "$ENV_NAME" != PROD ] && INTROSPECTION=true
 
-echo "[$ENV_NAME] installing on $HOST (image $IMAGE_REPO:$LOWER)"
+echo "[$ENV_NAME] installing on $HOST (images $API_REPO:$LOWER, $WEB_REPO:$LOWER)"
 "${SSH[@]}" "$HOST" 'mkdir -p /opt/indent-easy/init /opt/indent-easy/state /tmp/ie-install'
 "${SCP[@]}" "$ROOT/infrastructure/deploy/compose.yaml" "$ROOT/infrastructure/deploy/deploy.sh" \
   "$ROOT/infrastructure/deploy/systemd/indent-easy-deploy.service" \
   "$ROOT/infrastructure/deploy/systemd/indent-easy-deploy.timer" \
   "$ROOT/database/init/10-app-role.sh" "$HOST:/tmp/ie-install/"
 
-"${SSH[@]}" "$HOST" bash -s -- "$ENV_NAME" "$LOWER" "$DOMAIN" "$IMAGE_REPO" "$INTROSPECTION" <<'REMOTE'
+"${SSH[@]}" "$HOST" bash -s -- "$ENV_NAME" "$LOWER" "$DOMAIN" "$API_REPO" "$WEB_REPO" "$INTROSPECTION" <<'REMOTE'
 set -euo pipefail
-ENV_NAME=$1 LOWER=$2 DOMAIN=$3 IMAGE_REPO=$4 INTROSPECTION=$5
+ENV_NAME=$1 LOWER=$2 DOMAIN=$3 API_REPO=$4 WEB_REPO=$5 INTROSPECTION=$6
 D=/opt/indent-easy
 install -m 0644 /tmp/ie-install/compose.yaml "$D/compose.yaml"
 install -m 0755 /tmp/ie-install/deploy.sh "$D/deploy.sh"
 install -m 0755 /tmp/ie-install/10-app-role.sh "$D/init/10-app-role.sh"
-printf 'IE_IMAGE_REPO=%s\n' "$IMAGE_REPO" > "$D/agent.conf"
+printf 'IE_API_REPO=%s\nIE_WEB_REPO=%s\n' "$API_REPO" "$WEB_REPO" > "$D/agent.conf"
 
 if [ ! -f "$D/.env" ]; then
   secret() { openssl rand -base64 36 | tr -d '/+=\n' | cut -c1-40; }

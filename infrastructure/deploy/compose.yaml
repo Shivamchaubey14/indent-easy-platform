@@ -1,13 +1,63 @@
 # Indent Easy stack for one environment VM (DEV, QA or PROD), installed at /opt/indent-easy.
 #
-# Never started by hand in normal operation: the deploy agent (deploy.sh) runs
-#   docker compose --env-file .env --env-file release.env up -d --wait
-# where .env holds this environment's secrets (generated on the VM, never in Git) and
-# release.env pins the exact image digest being deployed.
+#   web (NGINX, port 80) ──► api-a ┐
+#                          └► api-b ┴─► postgres, redis
+#
+# Never started by hand in normal operation. The deploy agent (deploy.sh) reads .env (this
+# environment's secrets, generated on the VM, never in Git) and release.env (the exact image
+# digests being deployed). It runs the migrator, then replaces api-a, api-b and web one at a
+# time, so there is always a replica serving.
 name: indent-easy
 
-x-api-image: &api-image
-  image: ${IE_IMAGE:?IE_IMAGE must be set by the deploy agent (release.env)}
+x-api: &api
+  image: ${IE_API_IMAGE:?IE_API_IMAGE must be set by the deploy agent (release.env)}
+  restart: unless-stopped
+  read_only: true
+  tmpfs:
+    - /tmp:size=16m
+  environment:
+    NODE_ENV: production
+    APP_ENV: ${APP_ENV:?}
+    PORT: '8080'
+    METRICS_PORT: '9464'
+    PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:?}
+    CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?}
+    DATABASE_URL: postgres://ie_app:${IE_APP_PASSWORD}@postgres:5432/indent_easy
+    DATABASE_POOL_MAX: '5'
+    REDIS_URL: redis://redis:6379
+    S3_BUCKET_DOCUMENTS: ie-documents
+    S3_BUCKET_EXPORTS: ie-exports
+    S3_BUCKET_IMPORTS: ie-imports
+    S3_BUCKET_QUARANTINE: ie-quarantine
+    JWT_SIGNING_KEYS: ${JWT_SIGNING_KEYS:?}
+    CSRF_SECRET: ${CSRF_SECRET:?}
+    SMTP_HOST: ${SMTP_HOST:-localhost}
+    SMTP_PORT: ${SMTP_PORT:-25}
+    MAIL_FROM: ${MAIL_FROM:-Indent Easy <no-reply@indent-easy.local>}
+    GRAPHQL_INTROSPECTION: ${GRAPHQL_INTROSPECTION:-false}
+    GRAPHQL_PERSISTED_ONLY: ${GRAPHQL_PERSISTED_ONLY:-false}
+    MIN_MOBILE_VERSION: ${MIN_MOBILE_VERSION:-}
+    LOG_LEVEL: ${LOG_LEVEL:-info}
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  healthcheck:
+    # Ready = database, Redis and migrations OK (the image's own HEALTHCHECK is only liveness).
+    test:
+      [
+        'CMD',
+        '/nodejs/bin/node',
+        '-e',
+        "fetch('http://127.0.0.1:8080/health/ready').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
+      ]
+    interval: 5s
+    timeout: 3s
+    start_period: 20s
+    retries: 6
+  stop_grace_period: 45s
+  mem_limit: 384m
 
 services:
   postgres:
@@ -53,12 +103,12 @@ services:
       retries: 30
     mem_limit: 128m
 
-  # One-shot: applies pending migrations as the schema owner, then exits. The API only starts
-  # after it succeeds.
+  # One-shot, run by the agent with `docker compose run --rm migrate` before the API is replaced.
+  # The `jobs` profile keeps plain `up` from starting it.
   migrate:
-    <<: *api-image
+    image: ${IE_API_IMAGE:?}
+    profiles: ['jobs']
     command: ['dist/migrate.js']
-    restart: 'no'
     read_only: true
     environment:
       MIGRATION_DATABASE_URL: postgres://ie:${POSTGRES_PASSWORD}@postgres:5432/indent_easy
@@ -67,58 +117,28 @@ services:
         condition: service_healthy
     mem_limit: 256m
 
-  api:
-    <<: *api-image
+  api-a:
+    <<: *api
+
+  api-b:
+    <<: *api
+
+  web:
+    image: ${IE_WEB_IMAGE:?IE_WEB_IMAGE must be set by the deploy agent (release.env)}
     restart: unless-stopped
     read_only: true
     tmpfs:
-      - /tmp:size=16m
+      - /tmp:size=32m,uid=101,gid=101
     ports:
-      # No web front end yet: the API answers directly on port 80 of the VM.
       - '80:8080'
-    environment:
-      NODE_ENV: production
-      APP_ENV: ${APP_ENV:?}
-      PORT: '8080'
-      METRICS_PORT: '9464'
-      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:?}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?}
-      DATABASE_URL: postgres://ie_app:${IE_APP_PASSWORD}@postgres:5432/indent_easy
-      DATABASE_POOL_MAX: '10'
-      REDIS_URL: redis://redis:6379
-      S3_BUCKET_DOCUMENTS: ie-documents
-      S3_BUCKET_EXPORTS: ie-exports
-      S3_BUCKET_IMPORTS: ie-imports
-      S3_BUCKET_QUARANTINE: ie-quarantine
-      JWT_SIGNING_KEYS: ${JWT_SIGNING_KEYS:?}
-      CSRF_SECRET: ${CSRF_SECRET:?}
-      SMTP_HOST: ${SMTP_HOST:-localhost}
-      SMTP_PORT: ${SMTP_PORT:-25}
-      MAIL_FROM: ${MAIL_FROM:-Indent Easy <no-reply@indent-easy.local>}
-      GRAPHQL_INTROSPECTION: ${GRAPHQL_INTROSPECTION:-false}
-      GRAPHQL_PERSISTED_ONLY: ${GRAPHQL_PERSISTED_ONLY:-false}
-      MIN_MOBILE_VERSION: ${MIN_MOBILE_VERSION:-}
-      LOG_LEVEL: ${LOG_LEVEL:-info}
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-      redis:
-        condition: service_healthy
+    # No depends_on: NGINX re-resolves api-a/api-b by itself, so the web tier can be replaced
+    # without touching the API and vice versa.
     healthcheck:
-      # Ready = database, Redis and migrations OK (the image's own HEALTHCHECK is only liveness).
-      test:
-        [
-          'CMD',
-          '/nodejs/bin/node',
-          '-e',
-          "fetch('http://127.0.0.1:8080/health/ready').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
-        ]
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:8080/healthz']
       interval: 5s
       timeout: 3s
-      start_period: 20s
       retries: 6
-    stop_grace_period: 45s
-    mem_limit: 512m
+    mem_limit: 64m
 
 volumes:
   pgdata:

@@ -4,7 +4,7 @@ Single source of truth for where the build stands. Update the checklist and the 
 end of every session. Roadmap phases come from SRS §62; timelines are not estimated there.
 
 **Current phase:** 0 — Foundation
-**Next task:** 0.9b ship the web app (NGINX image, two API replicas behind it, rolling deploy without downtime, CI and release for the web image, live test on DEV). Then 0.8 worker/scheduler. PRs #1 → #10 are stacked; merge them in order. After #7 reaches `dev`, make the CI checks required (see 0.13). After the first image publish, make the GHCR package public (runbook `environments.md`).
+**Next task:** 0.8 worker + scheduler (BullMQ, outbox relay, leader lock), then 0.12 ESLint + boundaries. PRs #1–#9 are merged into `dev`; #10 (web app) and #11 (ship web) are open and stacked. Merge #10 first. Required checks on `dev`/`main`: format/types/tests/build, database, API image. Add "Web image build and scan" to the required checks once #11 is merged.
 
 **Repo:** https://github.com/Shivamchaubey14/indent-easy-platform (public). `main` and `dev` are protected. Branches are `feature/*` → PR → `dev`, and `dev` → PR → `main` at phase milestones. The owner merges PRs; they are not merged from the build session.
 
@@ -35,7 +35,7 @@ end of every session. Roadmap phases come from SRS §62; timelines are not estim
 - [x] 0.7 Drizzle: `@ie/db` package, `0000_baseline` + `0001_app_role` migrations, `ie_app` role so RLS applies, readiness gated on migrations, 9 integration tests (PR #5). Runbook: `docs/runbooks/database.md`
 - [ ] 0.8 `apps/worker` + `apps/scheduler` skeletons — BullMQ, outbox relay stub, leader lock
 - [x] 0.9 `apps/web` (PR #10): Vite 8 + React 19, TanStack Router (file-based) + Query, typed GraphQL (client-preset codegen), Zustand (ui persisted, session in memory), Tailwind 4 on the design tokens, GSAP entrance via `useEnter` (token ease, reduced motion respected), i18next EN/HI (defaults to the browser's language). Screens: app shell, dashboard with live API/DB status and feature flags, and a login screen (auth is Phase 1). First-load JS 131.6 KB gzip of a 250 KB budget.
-- [ ] 0.9b Ship the web app: NGINX image, two API replicas, rolling deploy, CI/release for the web image
+- [x] 0.9b Ship the web app (PR #11): NGINX web image (unprivileged, read-only, strict CSP, SPA fallback, immutable asset caching), two API replicas (`api-a`, `api-b`) behind it, and a rolling deploy agent for both images. CI builds, scans and boot-tests api and web as a matrix and promotes both. **Tested live on DEV**: API release with 0 failed requests (67/67), broken API release with 0 failed (492/492) plus rollback, web-only release ~0.6 s gap, one-time layout switch ~8 s.
 - [~] 0.10 `packages/design-tokens` done (PR #10): W3C tokens → CSS vars (light/dark/system, reduced motion) + a typed object for React Native; 14 WCAG contrast pairs tested. `packages/ui` (Radix primitives, Storybook) still to do; minimal primitives live in `apps/web/src/components/ui.tsx` for now.
 - [ ] 0.11 `apps/mobile` skeleton — Expo dev build, Expo Router, Zustand, Reanimated (decide `node-linker`)
 - [ ] 0.12 ESLint + boundaries rules, Vitest, Testcontainers smoke test
@@ -119,3 +119,12 @@ end of every session. Roadmap phases come from SRS §62; timelines are not estim
 - jsdom has no `matchMedia`; the test setup stubs it as reduced motion, which skips GSAP in tests.
 - New CI checks: `no-colour-literals.sh` (SRS §40.2) and `web-bundle-budget.mjs` (≤ 250 KB initial JS).
 - Port 4173 was reserved by Hyper-V (range 4141–4240, until reboot); the preview ran on 4710 instead.
+
+### 2026-09-25: shipping the web app
+- Found on resume that the user had merged PRs #1–#9 into `dev`. CI on `dev` published the first API image; the GHCR package pulls anonymously (public). Made the three CI jobs required on `dev` and `main`.
+- CodeRabbit (an AI review app the user installed) runs on PRs; it reported "pass" with no comments on #10.
+- The NGINX `resolve` upstream parameter (1.27.3+) is essential: a recreated replica gets a new IP. Tested locally: replaced both replicas under 400 requests, with 0 failures and 11 transparent retries.
+- Agent bug found before it bit: on the first deploy of the new layout the API digest was unchanged, so api-a/api-b would never have started. The agent now also rolls the API when a replica is missing.
+- Test mistake of mine: after the broken-API test I retagged only web, so the "web test" re-deployed the broken API (correctly rolled back). Reran properly: web-only release costs ~0.6 s.
+- DEV now follows GHCR for both images. Until #11 merges there is no `indent-easy-web:dev`, so the agent logs "cannot pull" and keeps the current release. DEV is powered off.
+- First CI run of #11 failed the web image scan: the full `nginx-unprivileged:1.29-alpine` had 38 High CVEs (curl, c-ares, OpenSSL, libxml2...). Switched to `alpine-slim` + `apk upgrade`: 0 High/Critical and 10 MB instead of 23. hadolint also rejects `USER root` (DL3066); use `USER 0`.
