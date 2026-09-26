@@ -7,6 +7,9 @@ import type { RequestHandler } from 'express';
 import { createApp } from './app.js';
 import type { AuthOperationId } from './modules/identity/index.js';
 import { createGraphQLServer } from './graphql/server.js';
+import { Grants } from './shared/authorization/index.js';
+import { currentContext, type Principal } from './shared/context.js';
+import { ApiError } from './shared/errors.js';
 import { Health } from './shared/health.js';
 import { createMetrics } from './shared/metrics.js';
 import { buildInfo } from './shared/version.js';
@@ -30,27 +33,47 @@ const typeDefs = loadTypeDefs();
 const notUsed: RequestHandler = (_req, res) => {
   res.status(501).end();
 };
-const anonymousIdentity = {
-  authenticate: ((_req, _res, next) => next()) as RequestHandler,
-  handlers: Object.fromEntries(
-    (
-      [
-        'login',
-        'refreshToken',
-        'getCsrfToken',
-        'logout',
-        'logoutAll',
-        'forgotPassword',
-        'resetPassword',
-        'changePassword',
-        'getJwks',
-      ] as const
-    ).map((id) => [id, notUsed]),
-  ) as Record<AuthOperationId, RequestHandler>,
-};
+const handlers = Object.fromEntries(
+  (
+    [
+      'login',
+      'refreshToken',
+      'getCsrfToken',
+      'logout',
+      'logoutAll',
+      'forgotPassword',
+      'resetPassword',
+      'changePassword',
+      'getJwks',
+    ] as const
+  ).map((id) => [id, notUsed]),
+) as Record<AuthOperationId, RequestHandler>;
 
-function build(options: { databaseUp?: boolean; organizationId?: string } = {}) {
-  const { databaseUp = true, organizationId = 'org-1' } = options;
+interface BuildOptions {
+  databaseUp?: boolean;
+  /** Simulates a verified access token; false = anonymous request. */
+  signedIn?: boolean;
+  permissions?: string[];
+  mustChangePassword?: boolean;
+  /** The user's roles changed after the token was issued. */
+  rolesChanged?: boolean;
+}
+
+function build(options: BuildOptions = {}) {
+  const { databaseUp = true, signedIn = true, permissions = [] } = options;
+  const principal: Principal = {
+    userId: 'user-1',
+    organizationId: 'org-1',
+    sessionId: 'session-1',
+    rolesVersion: 1,
+    mustChangePassword: options.mustChangePassword ?? false,
+  };
+  const denied: string[] = [];
+  const authenticate: RequestHandler = (_req, _res, next) => {
+    const context = currentContext();
+    if (signedIn && context) context.principal = principal;
+    next();
+  };
   const health = new Health(
     {
       database: () =>
@@ -63,7 +86,6 @@ function build(options: { databaseUp?: boolean; organizationId?: string } = {}) 
     config,
     logger,
     typeDefs,
-    organizationId: () => Promise.resolve(organizationId),
     services: {
       featureFlags: {
         list: (orgId) =>
@@ -73,10 +95,34 @@ function build(options: { databaseUp?: boolean; organizationId?: string } = {}) 
               : [],
           ),
       },
+      identity: {
+        user: () => Promise.resolve(null),
+        sessions: () => Promise.resolve([]),
+        revokeOwnSession: () => Promise.resolve(false),
+        revokeOtherSessions: () => Promise.resolve(0),
+      },
+      directory: () => Promise.reject(new Error('not used')),
+      access: (p) =>
+        options.rolesChanged
+          ? Promise.reject(new ApiError('AUTH_TOKEN_EXPIRED', 'Your access has changed.'))
+          : Promise.resolve({
+              grants: new Grants(p.userId, p.organizationId, [
+                {
+                  roleCode: 'TEST',
+                  permissions: new Set(permissions),
+                  locationIds: [],
+                  departmentIds: [],
+                  categoryIds: [],
+                },
+              ]),
+              homeWorkspace: 'STORE',
+            }),
+      denied: (_p, permission) => denied.push(permission),
     },
   });
   return {
     health,
+    denied,
     app: createApp({
       config,
       logger,
@@ -84,7 +130,7 @@ function build(options: { databaseUp?: boolean; organizationId?: string } = {}) 
       health,
       graphql,
       buildInfo: buildInfo(typeDefs),
-      identity: anonymousIdentity,
+      identity: { authenticate, handlers },
     }),
   };
 }
@@ -178,11 +224,37 @@ describe('GraphQL', () => {
     });
   });
 
-  it('answers unimplemented operations with NOT_IMPLEMENTED', async () => {
-    const res = await gql(build().app, '{ me { id } }');
+  it('needs a signed-in user for every operation', async () => {
+    const res = await gql(build({ signedIn: false }).app, '{ featureFlags { key } }');
+    expect(res.body.errors[0]).toMatchObject({ extensions: { code: 'AUTH_TOKEN_EXPIRED' } });
+  });
+
+  it('refuses a token issued before the roles changed, so the client refreshes', async () => {
+    const res = await gql(build({ rolesChanged: true }).app, '{ featureFlags { key } }');
+    expect(res.body.errors[0]).toMatchObject({ extensions: { code: 'AUTH_TOKEN_EXPIRED' } });
+  });
+
+  it('checks @auth permissions before the resolver runs, and records the refusal', async () => {
+    const { app, denied } = build();
+    const res = await gql(app, '{ roles { id } }');
     expect(res.body.errors[0]).toMatchObject({
-      message: 'Query.me is not available yet.',
+      extensions: { code: 'FORBIDDEN', details: { permission: 'admin:role_manage' } },
+    });
+    expect(denied).toEqual(['admin:role_manage']);
+  });
+
+  it('answers unimplemented operations with NOT_IMPLEMENTED once access is granted', async () => {
+    const res = await gql(build({ permissions: ['admin:role_manage'] }).app, '{ roles { id } }');
+    expect(res.body.errors[0]).toMatchObject({
+      message: 'Query.roles is not available yet.',
       extensions: { code: 'NOT_IMPLEMENTED' },
+    });
+  });
+
+  it('allows only `me` until a temporary password is changed', async () => {
+    const res = await gql(build({ mustChangePassword: true }).app, '{ featureFlags { key } }');
+    expect(res.body.errors[0]).toMatchObject({
+      extensions: { code: 'FORBIDDEN', details: { reason: 'PASSWORD_CHANGE_REQUIRED' } },
     });
   });
 

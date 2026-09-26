@@ -3,37 +3,22 @@
  * Run with `pnpm test:integration` (local: `pnpm infra:up && pnpm db:reset` first).
  */
 import { randomUUID } from 'node:crypto';
-import { loadConfig } from '@ie/config';
-import { loadTypeDefs } from '@ie/graphql/schema';
-import { Redis } from 'ioredis';
 import { createLocalJWKSet, type JSONWebKeySet, jwtVerify } from 'jose';
-import pg from 'pg';
-import { pino } from 'pino';
+import type pg from 'pg';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { createApp } from '../../app.js';
-import { createGraphQLServer } from '../../graphql/server.js';
+import type { createApp } from '../../app.js';
 import { withOrgContext } from '../../shared/database.js';
-import { Health } from '../../shared/health.js';
-import { createMetrics } from '../../shared/metrics.js';
-import { buildInfo } from '../../shared/version.js';
-import { createIdentity, type MailMessage, passwords, PostgresIdentity } from './index.js';
+import { integrationApp, ORG } from '../../test/integration-app.js';
+import { type MailMessage, passwords, PostgresIdentity } from './index.js';
 
-try {
-  process.loadEnvFile('../../.env');
-} catch {
-  // CI provides the variables directly.
-}
-
-const ORG = '0192a000-0000-7000-8000-000000000001';
 const run = randomUUID().slice(0, 8);
 const PASSWORD = 'first milk of the monsoon';
-const logger = pino({ level: 'silent' });
-const outbox: MailMessage[] = [];
 const createdUsers: string[] = [];
 
 let pool: pg.Pool;
-let redis: Redis;
+let outbox: MailMessage[];
+let close: () => Promise<void>;
 let app: ReturnType<typeof createApp>;
 
 /** Each test signs in from its own address, so per-IP limits never interfere between tests. */
@@ -89,44 +74,7 @@ async function webRefresh(refreshCookie: string, status: number) {
 }
 
 beforeAll(async () => {
-  // CI passes only the database and Redis URLs; everything else gets a neutral test value.
-  const config = loadConfig({
-    PUBLIC_BASE_URL: 'http://localhost:5173',
-    CORS_ALLOWED_ORIGINS: 'http://localhost:5173',
-    S3_BUCKET_DOCUMENTS: 'test-documents',
-    S3_BUCKET_EXPORTS: 'test-exports',
-    S3_BUCKET_IMPORTS: 'test-imports',
-    S3_BUCKET_QUARANTINE: 'test-quarantine',
-    SMTP_HOST: 'localhost',
-    MAIL_FROM: 'test@indent-easy.local',
-    ...process.env,
-    PASSWORD_BREACH_CHECK: 'off',
-  });
-  pool = new pg.Pool({ connectionString: config.database.url, max: 4 });
-  redis = new Redis(config.redis.url);
-  const identity = await createIdentity({
-    config,
-    pool,
-    redis,
-    logger,
-    mailer: { send: (message) => (outbox.push(message), Promise.resolve()) },
-  });
-  const typeDefs = loadTypeDefs();
-  app = createApp({
-    config,
-    logger,
-    metrics: createMetrics(),
-    health: new Health({}, logger),
-    graphql: createGraphQLServer({
-      config,
-      logger,
-      typeDefs,
-      services: { featureFlags: { list: () => Promise.resolve([]) } },
-      organizationId: () => Promise.resolve(ORG),
-    }),
-    buildInfo: buildInfo(typeDefs),
-    identity,
-  });
+  ({ app, pool, outbox, close } = await integrationApp());
 });
 
 afterAll(async () => {
@@ -140,8 +88,7 @@ afterAll(async () => {
       client.query('DELETE FROM identity.app_user WHERE id = ANY($1)', [createdUsers]),
     );
   }
-  await pool.end();
-  redis.disconnect();
+  await close();
 });
 
 describe('sign-in', () => {
