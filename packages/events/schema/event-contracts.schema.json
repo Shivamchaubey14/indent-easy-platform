@@ -34,6 +34,7 @@
             "ApprovalTaskCreated",
             "CycleActivated",
             "DocumentAvailable",
+            "DocumentUploaded",
             "GeneralSaleCreated",
             "GrnExcessDetected",
             "GrnPosted",
@@ -1634,6 +1635,35 @@
         }
       },
       "additionalProperties": true
+    },
+    "DocumentUploadedPayload": {
+      "type": "object",
+      "required": [
+        "documentId",
+        "versionNo",
+        "typeCode",
+        "mimeType",
+        "sizeBytes"
+      ],
+      "properties": {
+        "documentId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "versionNo": {
+          "type": "integer"
+        },
+        "typeCode": {
+          "type": "string"
+        },
+        "mimeType": {
+          "type": "string"
+        },
+        "sizeBytes": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false
     }
   },
   "allOf": [
@@ -2308,6 +2338,22 @@
         "properties": {
           "payload": {
             "$ref": "#/$defs/UserRoleChangedPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "eventType": {
+            "const": "DocumentUploaded"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/DocumentUploadedPayload"
           }
         }
       }

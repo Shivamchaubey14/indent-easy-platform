@@ -61,7 +61,8 @@
     ],
     "overrides": {
       "graphql": "^16.11.0",
-      "typescript": "~5.9.3"
+      "typescript": "~5.9.3",
+      "tmp": "^0.2.6"
     }
   }
 }

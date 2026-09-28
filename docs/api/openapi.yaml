@@ -466,6 +466,37 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
 
+  /api/v1/imports/templates/{kind}:
+    get:
+      tags: [Exports]
+      operationId: downloadImportTemplate
+      summary: Import template for a kind, holding the current data
+      description: >-
+        An XLSX with the kind's columns and the organisation's current records under them, so the
+        same file serves as the export and, after editing, as the import (MST-004, MST-007, MST-009).
+        Needs the kind's import permission.
+      parameters:
+        - name: kind
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [PRODUCT_MAPPING, VENDOR_PRODUCT, MPP_MASTER]
+      responses:
+        '200':
+          description: The workbook
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /api/v1/exports/{jobId}/download:
     get:
       tags: [Exports]

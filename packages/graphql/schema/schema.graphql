@@ -2294,11 +2294,28 @@ type ImportBatch implements Node {
   succeededRows: Int!
   failedRows: Int!
   progressPct: Float!
+  "True until the batch is committed: validation only, nothing applied."
+  previewOnly: Boolean!
+  "What the import does (or did) per row; null until validation finishes."
+  summary: ImportSummary
   errors(first: Int = 50, after: String): ImportErrorConnection!
+  "Spreadsheet of the file's rows with their problems, once validated."
   resultDocument: Document
   uploadedBy: UserRef!
+  createdAt: DateTime!
   startedAt: DateTime
   completedAt: DateTime
+}
+
+"Rows by outcome. Deactivations are records missing from the file (MPP import with deactivateMissing)."
+type ImportSummary {
+  created: Int!
+  updated: Int!
+  unchanged: Int!
+  deactivated: Int!
+  rejected: Int!
+  "Rows applied despite a non-critical problem (e.g. an unusual code format)."
+  warnings: Int!
 }
 
 type ImportError {
@@ -2329,7 +2346,10 @@ input StartImportInput {
   cycleId: ID
   "Validate and preview only; commit with commitImport."
   previewOnly: Boolean = true
+  "Per kind, e.g. MPP_MASTER: { deactivateMissing: true }."
   options: JSON
+  "Process a file that was already imported (same kind and content)."
+  force: Boolean = false
 }
 
 input CommitImportInput {
@@ -3834,6 +3854,8 @@ type Query {
   mppLedger(filter: MppLedgerFilter, pagination: PaginationInput): MppLedgerConnection!
     @auth(requires: "reconciliation:read_location")
   importBatch(id: ID!): ImportBatch
+  "The caller's recent imports of these kinds, newest first."
+  importBatches(kinds: [ImportKind!]!, first: Int = 20): [ImportBatch!]!
 
   # Finance
   invoices(filter: InvoiceFilter, pagination: PaginationInput): InvoiceConnection!

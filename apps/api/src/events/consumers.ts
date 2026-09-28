@@ -2,10 +2,16 @@ import type { DomainEvent, EventType } from '@ie/events';
 import type { PoolClient } from '../shared/database.js';
 import type { Logger } from '../shared/logging.js';
 
+/** Module services the worker hands to consumers (absent in processes that don't run them). */
+export interface WorkerServices {
+  documents?: { checkUpload(client: PoolClient, documentId: string): Promise<void> };
+}
+
 export interface ConsumerContext {
   /** The consumer's transaction: its writes commit together with the inbox record. */
   client: PoolClient;
   logger: Logger;
+  services: WorkerServices;
 }
 
 export interface Consumer {
@@ -48,7 +54,29 @@ export const eventLogConsumer: Consumer = {
   },
 };
 
-export const CONSUMERS: readonly Consumer[] = [eventLogConsumer];
+/** Sets the event's organisation on the consumer's transaction, so row-level security applies. */
+async function enterOrganization(client: PoolClient, organizationId: string): Promise<void> {
+  await client.query("SELECT set_config('app.org_id', $1, true)", [organizationId]);
+}
+
+/**
+ * Checks each uploaded file (SRS §35.2): checksum, file signature and malware scan, then marks it
+ * AVAILABLE or moves it to quarantine.
+ */
+export const documentCheckConsumer: Consumer = {
+  name: 'document-check',
+  events: ['DocumentUploaded'],
+  ordered: false,
+  concurrency: 2,
+  async handle(event, { client, services }) {
+    if (event.eventType !== 'DocumentUploaded') return;
+    if (!services.documents) throw new Error('document-check needs the documents service');
+    await enterOrganization(client, event.organizationId);
+    await services.documents.checkUpload(client, event.payload.documentId);
+  },
+};
+
+export const CONSUMERS: readonly Consumer[] = [eventLogConsumer, documentCheckConsumer];
 
 export function subscribers(
   eventType: string,

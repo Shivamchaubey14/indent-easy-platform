@@ -49,6 +49,9 @@ export const envSchema = z
     REDIS_URL: z.url({ protocol: /^rediss?$/ }),
 
     S3_ENDPOINT: optionalText.pipe(z.url().optional()),
+    // Where browsers and phones reach the object store, if not at S3_ENDPOINT (signed upload and
+    // download URLs are made for this address).
+    S3_PUBLIC_ENDPOINT: optionalText.pipe(z.url().optional()),
     S3_REGION: z.string().min(1).default('ap-south-1'),
     S3_BUCKET_DOCUMENTS: z.string().min(3),
     S3_BUCKET_EXPORTS: z.string().min(3),
@@ -56,6 +59,10 @@ export const envSchema = z
     S3_BUCKET_QUARANTINE: z.string().min(3),
     S3_ACCESS_KEY_ID: optionalText,
     S3_SECRET_ACCESS_KEY: optionalText,
+    // Malware scanning (clamd). Without a host, uploads are checked by file signature only and
+    // recorded as not scanned.
+    CLAMAV_HOST: optionalText,
+    CLAMAV_PORT: port.default(3310),
 
     JWT_SIGNING_KEYS: signingKeys,
     JWT_ACCESS_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(600),
@@ -132,6 +139,7 @@ function toConfig(env: Env) {
     redis: { url: env.REDIS_URL },
     storage: {
       endpoint: env.S3_ENDPOINT,
+      publicEndpoint: env.S3_PUBLIC_ENDPOINT ?? env.S3_ENDPOINT,
       region: env.S3_REGION,
       accessKeyId: env.S3_ACCESS_KEY_ID,
       secretAccessKey: env.S3_SECRET_ACCESS_KEY,
@@ -142,6 +150,7 @@ function toConfig(env: Env) {
         quarantine: env.S3_BUCKET_QUARANTINE,
       },
     },
+    scanner: env.CLAMAV_HOST ? { host: env.CLAMAV_HOST, port: env.CLAMAV_PORT } : null,
     auth: {
       jwtSigningKeys: env.JWT_SIGNING_KEYS,
       accessTtlSeconds: env.JWT_ACCESS_TTL_SECONDS,

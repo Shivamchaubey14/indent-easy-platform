@@ -420,3 +420,130 @@ export const mppsQuery = (filter: MppFilter, after: string | null) =>
     queryKey: ['masters', 'mpps', filter, after],
     queryFn: () => gql(MppsQuery, { filter, pagination: { first: PAGE_SIZE, after } }),
   });
+
+// ---- Imports (SRS OP-12) ------------------------------------------------------------------------
+
+export const ImportBatchesQuery = graphql(`
+  query MasterImportBatches($kinds: [ImportKind!]!) {
+    importBatches(kinds: $kinds, first: 10) {
+      id
+      kind
+      fileName
+      status
+      createdAt
+      summary {
+        created
+        updated
+        unchanged
+        deactivated
+        rejected
+        warnings
+      }
+    }
+  }
+`);
+
+export const ImportBatchQuery = graphql(`
+  query MasterImportBatch($id: ID!) {
+    importBatch(id: $id) {
+      id
+      kind
+      fileName
+      status
+      previewOnly
+      totalRows
+      processedRows
+      progressPct
+      createdAt
+      completedAt
+      summary {
+        created
+        updated
+        unchanged
+        deactivated
+        rejected
+        warnings
+      }
+      errors(first: 50) {
+        totalCount
+        edges {
+          node {
+            rowIndex
+            field
+            value
+            rule
+            message
+            suggestion
+            critical
+          }
+        }
+      }
+      resultDocument {
+        fileName
+        status
+        downloadUrl
+      }
+    }
+  }
+`);
+
+export const StartImportMutation = graphql(`
+  mutation MasterStartImport($input: StartImportInput!) {
+    startImport(input: $input) {
+      batch {
+        id
+      }
+      userErrors {
+        code
+        message
+        field
+        details
+      }
+    }
+  }
+`);
+
+export const CommitImportMutation = graphql(`
+  mutation MasterCommitImport($batchId: ID!) {
+    commitImport(input: { batchId: $batchId }) {
+      batch {
+        id
+        status
+      }
+      userErrors {
+        code
+        message
+        field
+        details
+      }
+    }
+  }
+`);
+
+export const DiscardImportMutation = graphql(`
+  mutation MasterDiscardImport($batchId: ID!) {
+    discardImport(batchId: $batchId) {
+      batch {
+        id
+        status
+      }
+      userErrors {
+        code
+        message
+        field
+        details
+      }
+    }
+  }
+`);
+
+/** Statuses in which the worker still has the batch; the screen polls while it is in one. */
+export const IMPORT_WORKING = ['UPLOADED', 'VALIDATING', 'PROCESSING'];
+
+export const importBatchQuery = (id: string) =>
+  queryOptions({
+    queryKey: ['masters', 'import', id],
+    queryFn: async () => (await gql(ImportBatchQuery, { id })).importBatch,
+    refetchInterval: (query) =>
+      query.state.data && IMPORT_WORKING.includes(query.state.data.status) ? 1500 : false,
+  });
