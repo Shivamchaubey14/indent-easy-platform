@@ -106,7 +106,13 @@ describe('outbox relay', () => {
       eventType: 'IndentCreated',
       aggregateVersion: 1,
     });
-    expect(await relay.relayOnce()).toBe(0); // nothing left to publish
+    // Relaying again never publishes this event a second time. (Other test files add events in
+    // parallel, so the outbox as a whole need not be empty here.)
+    await relay.relayOnce();
+    const jobs = await queue.getJobs(['waiting', 'delayed', 'active', 'completed', 'failed']);
+    expect(
+      jobs.filter((j) => (j.data as { eventId?: string }).eventId === event.eventId),
+    ).toHaveLength(1);
     await queue.close();
     await relay.stop();
   });

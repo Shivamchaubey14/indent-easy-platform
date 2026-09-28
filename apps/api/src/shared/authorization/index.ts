@@ -5,4 +5,4 @@ export {
   type LocationScope,
   type ScopeKeys,
 } from './grants.js';
-export { type LoadedGrants, loadGrants } from './load-grants.js';
+export { type LoadedGrants, loadGrants, loadUserGrants } from './load-grants.js';

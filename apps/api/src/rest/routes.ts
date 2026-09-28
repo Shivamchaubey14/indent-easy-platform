@@ -24,6 +24,11 @@ export const REST_ROUTES = [
   { operationId: 'completeUpload', method: 'post', path: '/api/v1/files/{documentId}/complete' },
   { operationId: 'getDocument', method: 'get', path: '/api/v1/files/{documentId}' },
   { operationId: 'downloadDocument', method: 'get', path: '/api/v1/files/{documentId}/download' },
+  {
+    operationId: 'downloadImportTemplate',
+    method: 'get',
+    path: '/api/v1/imports/templates/{kind}',
+  },
   // Served by the separate metrics listener, not the main app.
   { operationId: 'metrics', method: 'get', path: '/metrics', listener: 'metrics' },
 ] as const;

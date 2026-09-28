@@ -4,12 +4,7 @@
  * refusals: wrong type, too large, tampered file, disguised file, other people's files.
  */
 import { createHash, randomUUID } from 'node:crypto';
-import {
-  BucketAlreadyOwnedByYou,
-  CreateBucketCommand,
-  HeadObjectCommand,
-  S3Client,
-} from '@aws-sdk/client-s3';
+import { HeadObjectCommand, type S3Client } from '@aws-sdk/client-s3';
 import type pg from 'pg';
 import request from 'supertest';
 import { pino } from 'pino';
@@ -19,7 +14,7 @@ import { CONSUMERS } from '../../events/consumers.js';
 import { envelopeFromRow, type OutboxRow } from '../../events/outbox.js';
 import { processEvent } from '../../events/process.js';
 import { withOrgContext } from '../../shared/database.js';
-import { integrationApp, ORG } from '../../test/integration-app.js';
+import { ensureBuckets, integrationApp, ORG } from '../../test/integration-app.js';
 import { passwords, PostgresIdentity } from '../identity/index.js';
 
 const run = randomUUID().slice(0, 6).toLowerCase();
@@ -31,6 +26,7 @@ const SPREADSHEET = Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer
 let context: Awaited<ReturnType<typeof integrationApp>>;
 let app: ReturnType<typeof createApp>;
 let pool: pg.Pool;
+let s3: S3Client;
 let admin: string;
 let store: string;
 const users: string[] = [];
@@ -120,24 +116,7 @@ const statusOf = async (documentId: string) =>
 beforeAll(async () => {
   context = await integrationApp();
   ({ app, pool } = context);
-  const s3 = new S3Client({
-    region: context.config.storage.region,
-    endpoint: context.config.storage.endpoint,
-    forcePathStyle: true,
-    credentials: {
-      accessKeyId: context.config.storage.accessKeyId ?? '',
-      secretAccessKey: context.config.storage.secretAccessKey ?? '',
-    },
-  });
-  for (const bucket of Object.values(context.config.storage.buckets)) {
-    await s3.send(new CreateBucketCommand({ Bucket: bucket })).catch((err: unknown) => {
-      if (
-        !(err instanceof BucketAlreadyOwnedByYou) &&
-        (err as { name?: string }).name !== 'BucketAlreadyOwnedByYou'
-      )
-        throw err;
-    });
-  }
+  s3 = await ensureBuckets(context.config);
   admin = await account('ADMIN');
   store = await account('STORE_USER');
 });
@@ -252,15 +231,6 @@ describe('refusals', () => {
         [documentId],
       );
       return rows[0]!.key;
-    });
-    const s3 = new S3Client({
-      region: context.config.storage.region,
-      endpoint: context.config.storage.endpoint,
-      forcePathStyle: true,
-      credentials: {
-        accessKeyId: context.config.storage.accessKeyId ?? '',
-        secretAccessKey: context.config.storage.secretAccessKey ?? '',
-      },
     });
     await expect(
       s3.send(

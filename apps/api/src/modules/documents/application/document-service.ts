@@ -201,10 +201,23 @@ export class DocumentService {
     return toMeta(updated ?? document);
   }
 
+  /** A download through the REST API: audited, then redirected to a short-lived signed URL. */
   async downloadUrl(
     requester: Requester,
     documentId: string,
     disposition: 'inline' | 'attachment',
+  ): Promise<string> {
+    const document = await this.visible(requester, documentId);
+    const url = await this.signedUrl(requester, documentId, disposition);
+    await this.store.recordDownload(requester.organizationId, document);
+    return url;
+  }
+
+  /** A short-lived signed URL (5 min) for an AVAILABLE document this user may see. */
+  async signedUrl(
+    requester: Requester,
+    documentId: string,
+    disposition: 'inline' | 'attachment' = 'attachment',
   ): Promise<string> {
     const document = await this.visible(requester, documentId);
     if (document.status !== 'AVAILABLE') {
@@ -212,7 +225,6 @@ export class DocumentService {
         status: document.status,
       });
     }
-    await this.store.recordDownload(requester.organizationId, document);
     return this.storage.presignGet({
       bucket: bucketFor(document.typeCode),
       key: document.storageKey,

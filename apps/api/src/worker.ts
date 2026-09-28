@@ -23,7 +23,9 @@ import { createPool } from './shared/database.js';
 import { Health } from './shared/health.js';
 import { createMetrics, startMetricsServer } from './shared/metrics.js';
 import { createRedis } from './shared/redis.js';
+import { CATALOG_IMPORTS } from './modules/catalog/index.js';
 import { createDocuments } from './modules/documents/index.js';
+import { createImportRunner } from './modules/imports/index.js';
 
 const config = readConfig();
 const logger = processLogger('worker', config);
@@ -167,6 +169,22 @@ maintenanceWorker.on('failed', (job, err) =>
   logger.error({ err, job: job?.name }, 'maintenance job failed'),
 );
 
+// --- Imports -------------------------------------------------------------------------------------
+// Batches are claimed from the database with a lease (io.claim_import_batch), so any number of
+// workers can share the work and a batch left by a dead worker is picked up again.
+const importRunner = createImportRunner(pool, documents, CATALOG_IMPORTS, logger, config.timezone);
+const IMPORT_POLL_MS = 2_000;
+let importsStopped = false;
+const importsDone = (async () => {
+  while (!importsStopped) {
+    const worked = await importRunner.runOnce().catch((err: unknown) => {
+      logger.error({ err }, 'import runner error');
+      return false;
+    });
+    if (!worked) await new Promise((resolve) => setTimeout(resolve, IMPORT_POLL_MS));
+  }
+})();
+
 // --- Health and lifecycle ------------------------------------------------------------------------
 const health = new Health(
   {
@@ -202,6 +220,8 @@ onShutdown(logger, async () => {
   // close() waits for jobs in progress to finish.
   await Promise.all(consumerWorkers.map(({ worker }) => worker.close()));
   await maintenanceWorker.close();
+  importsStopped = true;
+  await importsDone; // lets the batch in hand finish its current step
   await Promise.all([
     ...consumerWorkers.map(({ dlq }) => dlq.close()),
     ...inspected.map((q) => q.close()),

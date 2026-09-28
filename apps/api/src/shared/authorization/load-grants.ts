@@ -30,7 +30,37 @@ export async function loadGrants(
   principal: Principal,
   timezone: string,
 ): Promise<LoadedGrants> {
-  const rows = await withOrgContext(pool, principal.organizationId, async (client) => {
+  const rows = await assignmentRows(pool, principal.organizationId, principal.userId, timezone);
+
+  const first = rows[0];
+  if (!first || first.status !== 'ACTIVE' || first.roles_version !== principal.rolesVersion) {
+    throw new ApiError('AUTH_TOKEN_EXPIRED', 'Your access has changed. Refreshing your session.', {
+      reason: 'ROLES_CHANGED',
+    });
+  }
+  return {
+    grants: new Grants(principal.userId, principal.organizationId, toAssignments(rows)),
+    homeWorkspace: rows.find((row) => row.home_workspace)?.home_workspace ?? 'STORE',
+  };
+}
+
+/**
+ * A user's current grants outside a request, e.g. for work the worker does on their behalf.
+ * Null when the user is no longer active, so their queued work stops.
+ */
+export async function loadUserGrants(
+  pool: Pool,
+  organizationId: string,
+  userId: string,
+  timezone: string,
+): Promise<Grants | null> {
+  const rows = await assignmentRows(pool, organizationId, userId, timezone);
+  if (rows[0]?.status !== 'ACTIVE') return null;
+  return new Grants(userId, organizationId, toAssignments(rows));
+}
+
+function assignmentRows(pool: Pool, organizationId: string, userId: string, timezone: string) {
+  return withOrgContext(pool, organizationId, async (client) => {
     const result = await client.query<Row>(
       `SELECT u.roles_version, u.status, r.code AS role_code, r.home_workspace,
               ur.scope_location_ids::text[] AS scope_location_ids,
@@ -46,18 +76,14 @@ export async function loadGrants(
        LEFT JOIN identity.role r ON r.id = ur.role_id AND r.status = 'ACTIVE'
        WHERE u.id = $1
        ORDER BY r.home_priority NULLS LAST`,
-      [principal.userId, timezone],
+      [userId, timezone],
     );
     return result.rows;
   });
+}
 
-  const first = rows[0];
-  if (!first || first.status !== 'ACTIVE' || first.roles_version !== principal.rolesVersion) {
-    throw new ApiError('AUTH_TOKEN_EXPIRED', 'Your access has changed. Refreshing your session.', {
-      reason: 'ROLES_CHANGED',
-    });
-  }
-  const assignments: Assignment[] = rows
+function toAssignments(rows: Row[]): Assignment[] {
+  return rows
     .filter((row) => row.role_code)
     .map((row) => ({
       roleCode: row.role_code!,
@@ -66,8 +92,4 @@ export async function loadGrants(
       departmentIds: row.scope_department_ids ?? [],
       categoryIds: row.scope_category_ids ?? [],
     }));
-  return {
-    grants: new Grants(principal.userId, principal.organizationId, assignments),
-    homeWorkspace: rows.find((row) => row.home_workspace)?.home_workspace ?? 'STORE',
-  };
 }

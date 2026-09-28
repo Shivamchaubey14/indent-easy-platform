@@ -2,7 +2,8 @@
  * The real API app for integration tests: PostgreSQL as the application role, Redis, the
  * identity module and GraphQL with its real services. Only e-mail is captured instead of sent.
  */
-import { loadConfig } from '@ie/config';
+import { BucketAlreadyOwnedByYou, CreateBucketCommand, S3Client } from '@aws-sdk/client-s3';
+import { type AppConfig, loadConfig } from '@ie/config';
 import { loadTypeDefs } from '@ie/graphql/schema';
 import { Redis } from 'ioredis';
 import pg from 'pg';
@@ -12,9 +13,11 @@ import { createGraphQLServer } from '../graphql/server.js';
 import { postgresFeatureFlags } from '../modules/configuration/index.js';
 import { createDocuments, filesHandlers } from '../modules/documents/index.js';
 import { createIdentity, type MailMessage, requirePrincipal } from '../modules/identity/index.js';
-import { createCatalog } from '../modules/catalog/index.js';
+import { CATALOG_IMPORTS, createCatalog } from '../modules/catalog/index.js';
+import { createImports, importsHandlers } from '../modules/imports/index.js';
 import { loadDirectory, organizationAdmin } from '../modules/organization/index.js';
 import { loadGrants } from '../shared/authorization/index.js';
+import type { Principal } from '../shared/context.js';
 import { Health } from '../shared/health.js';
 import { createMetrics } from '../shared/metrics.js';
 import { buildInfo } from '../shared/version.js';
@@ -58,6 +61,12 @@ export async function integrationApp() {
     mailer: { send: (message) => (outbox.push(message), Promise.resolve()) },
   });
   const documents = createDocuments(config, pool, logger);
+  const imports = createImports(pool, documents, CATALOG_IMPORTS);
+  const requester = async (principal: Principal) => ({
+    organizationId: principal.organizationId,
+    userId: principal.userId,
+    grants: (await loadGrants(pool, principal, config.timezone)).grants,
+  });
   const typeDefs = loadTypeDefs();
   const app = createApp({
     config,
@@ -74,6 +83,7 @@ export async function integrationApp() {
         admin: identity.admin,
         organizationAdmin: organizationAdmin(pool),
         catalog,
+        imports,
         directory: (organizationId) => loadDirectory(pool, organizationId),
         access: (principal) => loadGrants(pool, principal, config.timezone),
         denied: identity.recordDenied,
@@ -81,15 +91,18 @@ export async function integrationApp() {
     }),
     buildInfo: buildInfo(typeDefs),
     identity,
-    handlers: filesHandlers({
-      service: documents.service,
-      principal: (res) => requirePrincipal(res),
-      requester: async (principal) => ({
-        organizationId: principal.organizationId,
-        userId: principal.userId,
-        grants: (await loadGrants(pool, principal, config.timezone)).grants,
+    handlers: {
+      ...filesHandlers({
+        service: documents.service,
+        principal: (res) => requirePrincipal(res),
+        requester,
       }),
-    }),
+      ...importsHandlers({
+        service: imports.service,
+        principal: (res) => requirePrincipal(res),
+        requester,
+      }),
+    },
   });
   return {
     app,
@@ -98,9 +111,31 @@ export async function integrationApp() {
     redis,
     outbox,
     documents,
+    imports,
     close: async () => {
       await pool.end();
       redis.disconnect();
     },
   };
+}
+
+/** Creates the object storage buckets the tests use, if they don't exist yet. */
+export async function ensureBuckets(config: AppConfig): Promise<S3Client> {
+  const s3 = new S3Client({
+    region: config.storage.region,
+    endpoint: config.storage.endpoint,
+    forcePathStyle: true,
+    credentials: {
+      accessKeyId: config.storage.accessKeyId ?? '',
+      secretAccessKey: config.storage.secretAccessKey ?? '',
+    },
+  });
+  for (const bucket of Object.values(config.storage.buckets)) {
+    await s3.send(new CreateBucketCommand({ Bucket: bucket })).catch((err: unknown) => {
+      const name = (err as { name?: string }).name;
+      if (!(err instanceof BucketAlreadyOwnedByYou) && name !== 'BucketAlreadyOwnedByYou')
+        throw err;
+    });
+  }
+  return s3;
 }

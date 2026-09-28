@@ -5,9 +5,11 @@ import { createGraphQLServer } from './graphql/server.js';
 import { postgresFeatureFlags } from './modules/configuration/index.js';
 import { createDocuments, filesHandlers } from './modules/documents/index.js';
 import { createIdentity, requirePrincipal } from './modules/identity/index.js';
-import { createCatalog } from './modules/catalog/index.js';
+import { CATALOG_IMPORTS, createCatalog } from './modules/catalog/index.js';
+import { createImports, importsHandlers } from './modules/imports/index.js';
 import { loadDirectory, organizationAdmin } from './modules/organization/index.js';
 import { loadGrants } from './shared/authorization/index.js';
+import type { Principal } from './shared/context.js';
 import { migrationStatus } from '@ie/db';
 import { createPool } from './shared/database.js';
 import { Health } from './shared/health.js';
@@ -42,6 +44,24 @@ const health = new Health(
 );
 
 const catalog = createCatalog(pool);
+const documents = createDocuments(config, pool, logger);
+const requester = async (principal: Principal) => ({
+  organizationId: principal.organizationId,
+  userId: principal.userId,
+  grants: (await loadGrants(pool, principal, config.timezone)).grants,
+});
+const imports = createImports(pool, documents, CATALOG_IMPORTS);
+const files = filesHandlers({
+  service: documents.service,
+  principal: (res) => requirePrincipal(res),
+  requester,
+});
+const importFiles = importsHandlers({
+  service: imports.service,
+  principal: (res) => requirePrincipal(res),
+  requester,
+});
+
 const identity = await createIdentity({
   config,
   pool,
@@ -60,21 +80,11 @@ const graphql = createGraphQLServer({
     admin: identity.admin,
     organizationAdmin: organizationAdmin(pool),
     catalog,
+    imports,
     directory: (organizationId) => loadDirectory(pool, organizationId),
     access: (principal) => loadGrants(pool, principal, config.timezone),
     denied: identity.recordDenied,
   },
-});
-
-const documents = createDocuments(config, pool, logger);
-const files = filesHandlers({
-  service: documents.service,
-  principal: (res) => requirePrincipal(res),
-  requester: async (principal) => ({
-    organizationId: principal.organizationId,
-    userId: principal.userId,
-    grants: (await loadGrants(pool, principal, config.timezone)).grants,
-  }),
 });
 
 const app = createApp({
@@ -85,7 +95,7 @@ const app = createApp({
   graphql,
   buildInfo: info,
   identity,
-  handlers: files,
+  handlers: { ...files, ...importFiles },
 });
 const server = createServer(app);
 const metricsServer = startMetricsServer(metrics, config.http.metricsPort, logger);
