@@ -355,12 +355,18 @@ export const uomConversionInCatalog = catalog.table(
   'uom_conversion',
   {
     id: uuid().defaultRandom().primaryKey().notNull(),
+    organizationId: uuid('organization_id').notNull(),
     fromUomId: uuid('from_uom_id').notNull(),
     toUomId: uuid('to_uom_id').notNull(),
     productId: uuid('product_id'),
     factor: numeric({ precision: 18, scale: 6 }).notNull(),
   },
   (table): PgTableExtraConfigValue[] => [
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organizationInOrg.id],
+      name: 'uom_conversion_organization_id_fkey',
+    }),
     uniqueIndex('uq_uom_conversion').using(
       'btree',
       sql`from_uom_id`,
@@ -384,6 +390,13 @@ export const uomConversionInCatalog = catalog.table(
     }),
     check('ck_uom_conv_distinct', sql`from_uom_id <> to_uom_id`),
     check('ck_uom_conv_factor', sql`factor > (0)::numeric`),
+    pgPolicy('p_org_isolation', {
+      as: 'permissive',
+      for: 'all',
+      to: ['public'],
+      using: sql`(organization_id = (NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid)`,
+      withCheck: sql`(organization_id = (NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid)`,
+    }),
   ],
 );
 
@@ -496,6 +509,7 @@ export const vendorContactInCatalog = catalog.table(
   'vendor_contact',
   {
     id: uuid().defaultRandom().primaryKey().notNull(),
+    organizationId: uuid('organization_id').notNull(),
     vendorId: uuid('vendor_id').notNull(),
     name: text(),
     email: citext('email'),
@@ -504,6 +518,11 @@ export const vendorContactInCatalog = catalog.table(
     status: text().default('ACTIVE').notNull(),
   },
   (table): PgTableExtraConfigValue[] => [
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organizationInOrg.id],
+      name: 'vendor_contact_organization_id_fkey',
+    }),
     index('ix_vendor_contact_vendor').using(
       'btree',
       table.vendorId.asc().nullsLast().op('uuid_ops'),
@@ -514,6 +533,13 @@ export const vendorContactInCatalog = catalog.table(
       name: 'vendor_contact_vendor_id_fkey',
     }).onDelete('cascade'),
     check('ck_contact_channel', sql`(email IS NOT NULL) OR (phone_e164 IS NOT NULL)`),
+    pgPolicy('p_org_isolation', {
+      as: 'permissive',
+      for: 'all',
+      to: ['public'],
+      using: sql`(organization_id = (NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid)`,
+      withCheck: sql`(organization_id = (NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid)`,
+    }),
   ],
 );
 
@@ -4687,6 +4713,7 @@ export const physicalCountInInventory = inventory.table(
 export const vendorProductInCatalog = catalog.table(
   'vendor_product',
   {
+    organizationId: uuid('organization_id').notNull(),
     vendorId: uuid('vendor_id').notNull(),
     productId: uuid('product_id').notNull(),
     priority: integer().default(1).notNull(),
@@ -4698,6 +4725,11 @@ export const vendorProductInCatalog = catalog.table(
       .notNull(),
   },
   (table): PgTableExtraConfigValue[] => [
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organizationInOrg.id],
+      name: 'vendor_product_organization_id_fkey',
+    }),
     index('ix_vendor_product_product').using(
       'btree',
       table.productId.asc().nullsLast().op('uuid_ops'),
@@ -4713,6 +4745,13 @@ export const vendorProductInCatalog = catalog.table(
       name: 'vendor_product_vendor_id_fkey',
     }),
     primaryKey({ columns: [table.vendorId, table.productId], name: 'vendor_product_pkey' }),
+    pgPolicy('p_org_isolation', {
+      as: 'permissive',
+      for: 'all',
+      to: ['public'],
+      using: sql`(organization_id = (NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid)`,
+      withCheck: sql`(organization_id = (NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid)`,
+    }),
   ],
 );
 

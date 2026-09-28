@@ -400,6 +400,25 @@ type ProductCategory implements Node {
   name: String!
   parent: ProductCategory
   requiresInspection: Boolean!
+  "Owning HOD; approval routing falls back to it when a product has no owner (MST-002)."
+  owner: UserRef
+}
+
+"How many `to` units one `from` unit holds, e.g. 50KG → KG = 50. Product-specific when `product` is set."
+type UomConversion {
+  id: ID!
+  from: Uom!
+  to: Uom!
+  product: Product
+  factor: Decimal!
+}
+
+"A system that knows products by its own codes (SAP, NDDB, …). Lower priority is preferred for display; 0 never displays."
+type ExternalSystem {
+  id: ID!
+  code: String!
+  name: String!
+  displayPriority: Int!
 }
 
 enum ProductStatus {
@@ -3141,6 +3160,59 @@ type MppPayload {
   userErrors: [UserError!]!
 }
 
+input SaveUomInput {
+  id: ID
+  code: String!
+  name: String!
+  nameHi: String
+  "Fraction digits a quantity in this unit may have (0–3)."
+  decimalsAllowed: Int!
+}
+
+type UomPayload {
+  uom: Uom
+  userErrors: [UserError!]!
+}
+
+"Creates or changes the factor of a conversion; one per (from, to, product)."
+input SaveUomConversionInput {
+  fromUomId: ID!
+  toUomId: ID!
+  productId: ID
+  factor: Decimal!
+}
+
+type UomConversionPayload {
+  conversion: UomConversion
+  userErrors: [UserError!]!
+}
+
+input SaveProductCategoryInput {
+  id: ID
+  code: String!
+  name: String!
+  parentId: ID
+  ownerUserId: ID
+  requiresInspection: Boolean = false
+}
+
+type ProductCategoryPayload {
+  category: ProductCategory
+  userErrors: [UserError!]!
+}
+
+input SaveExternalSystemInput {
+  id: ID
+  code: String!
+  name: String!
+  displayPriority: Int!
+}
+
+type ExternalSystemPayload {
+  externalSystem: ExternalSystem
+  userErrors: [UserError!]!
+}
+
 input SaveLocationInput {
   id: ID
   code: String!
@@ -3658,7 +3730,10 @@ type Query {
   product(id: ID!): Product @auth(requires: "product:read")
   productByCode(code: String!, system: String): Product @auth(requires: "product:read")
   uoms: [Uom!]!
+  "General conversions, plus the product's own when `productId` is given."
+  uomConversions(productId: ID): [UomConversion!]!
   productCategories: [ProductCategory!]!
+  externalSystems: [ExternalSystem!]!
   vendors(filter: VendorFilter, pagination: PaginationInput): VendorConnection!
     @auth(requires: "vendor:read")
   vendor(id: ID!): Vendor @auth(requires: "vendor:read")
@@ -4012,6 +4087,14 @@ type Mutation {
   setVendorProducts(input: SetVendorProductsInput!): VendorPayload!
     @auth(requires: "vendor:map_products")
   saveMpp(input: SaveMppInput!): MppPayload! @auth(requires: "mpp:manage")
+  saveUom(input: SaveUomInput!): UomPayload! @auth(requires: "admin:master_manage")
+  saveUomConversion(input: SaveUomConversionInput!): UomConversionPayload!
+    @auth(requires: "admin:master_manage")
+  deleteUomConversion(id: ID!): DeletePayload! @auth(requires: "admin:master_manage")
+  saveProductCategory(input: SaveProductCategoryInput!): ProductCategoryPayload!
+    @auth(requires: "admin:master_manage")
+  saveExternalSystem(input: SaveExternalSystemInput!): ExternalSystemPayload!
+    @auth(requires: "admin:master_manage")
   saveLocation(input: SaveLocationInput!): LocationPayload! @auth(requires: "admin:master_manage")
   saveDepartment(input: SaveDepartmentInput!): DepartmentPayload!
     @auth(requires: "admin:master_manage")

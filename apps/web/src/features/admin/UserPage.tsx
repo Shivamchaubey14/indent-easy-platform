@@ -20,6 +20,7 @@ import { useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import type { z } from 'zod';
+import { type PickedUser, UserPicker } from '../../components/UserPicker';
 import { ApiRequestError, gql } from '../../lib/api';
 import {
   CreateUserMutation,
@@ -43,6 +44,7 @@ const profileSchema = createUserInputSchema.pick({
   additionalLocationIds: true,
   deliveryPointCode: true,
   preferredLocale: true,
+  reportsToId: true,
 });
 type ProfileForm = z.input<typeof profileSchema>;
 const PROFILE_FIELDS = Object.keys(profileSchema.shape);
@@ -87,11 +89,13 @@ function UserForm({ user }: { user: UserData | null }) {
       roleId: r.role.id,
       scopeLocationIds: r.scopeLocations.map((l) => l.id),
       scopeDepartmentIds: r.scopeDepartments.map((d) => d.id),
+      scopeCategoryIds: r.scopeCategories.map((c) => c.id),
       validFrom: r.validFrom ?? '',
       validTo: r.validTo ?? '',
     })) ?? [],
   );
   const [roleErrors, setRoleErrors] = useState<Record<number, string>>({});
+  const [reportsTo, setReportsTo] = useState<PickedUser | null>(user?.reportsTo ?? null);
   const [sendInvite, setSendInvite] = useState(true);
   const [confirm, setConfirm] = useState<'deactivate' | 'reset' | null>(null);
   const [busy, setBusy] = useState(false);
@@ -152,6 +156,7 @@ function UserForm({ user }: { user: UserData | null }) {
       additionalLocationIds: profile.additionalLocationIds ?? [],
       deliveryPointCode: profile.deliveryPointCode || null,
       preferredLocale: profile.preferredLocale ?? 'EN',
+      reportsToId: reportsTo?.id ?? null,
     };
     if (!user) {
       const result = await gql(CreateUserMutation, {
@@ -334,6 +339,17 @@ function UserForm({ user }: { user: UserData | null }) {
             >
               {(control) => <TextInput {...control} {...register('deliveryPointCode')} />}
             </Field>
+            <Field label={t('admin.reportsTo')} error={fieldError(errors.reportsToId?.message)}>
+              {(control) => (
+                <UserPicker
+                  control={control}
+                  value={reportsTo}
+                  onChange={setReportsTo}
+                  canSearch
+                  {...(user && { excludeId: user.id })}
+                />
+              )}
+            </Field>
             <Field label={t('admin.language')}>
               {(control) => (
                 <SelectInput {...control} {...register('preferredLocale')}>
@@ -390,6 +406,7 @@ function UserForm({ user }: { user: UserData | null }) {
             roles={data.roles}
             locations={data.locations.filter((l) => l.active)}
             departments={data.departments}
+            categories={data.productCategories}
             errors={roleErrors}
           />
           {user ? (

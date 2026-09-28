@@ -42,6 +42,8 @@ export interface IdentityOptions {
   logger: Logger;
   /** The organisation directory, to check references in admin input. */
   directory: (organizationId: string) => Promise<Directory>;
+  /** Which ids are product categories, to check role category scopes. */
+  knownCategories: (organizationId: string, ids: string[]) => Promise<Set<string>>;
   /** Overrides for tests. */
   mailer?: Mailer;
   breached?: BreachedPasswords;
@@ -95,6 +97,7 @@ export async function createIdentity(options: IdentityOptions): Promise<Identity
     publicBaseUrl: config.http.publicBaseUrl,
     accessTtlSeconds: tokens.ttlSeconds,
     directory: options.directory,
+    knownCategories: options.knownCategories,
   });
   return {
     service,
