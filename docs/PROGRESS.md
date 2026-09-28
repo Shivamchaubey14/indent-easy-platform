@@ -4,7 +4,7 @@ Single source of truth for where the build stands. Update the checklist and the 
 end of every session. Roadmap phases come from SRS §62; timelines are not estimated there.
 
 **Current phase:** 1 — Identity & Admin
-**Next task:** 1.6c object storage on the VMs, so uploads and imports work on DEV: MinIO (or the OQ-022 store) in `infrastructure/deploy/compose.yaml`, reachable by browsers at its own port or host (signed URLs break behind a path prefix), `S3_*`/`S3_PUBLIC_ENDPOINT` in `install.sh`, buckets created, the web CSP `connect-src` opened for that origin, and ClamAV sized for the VM (or scanning skipped there, recorded). Then 1.7. PR #22 (1.6b) is open; merge it first. DEV still has no organisation: bootstrap it with `org:bootstrap`, `user:create` and `user:grant` (docs/runbooks/auth.md).
+**Next task:** 1.6c object storage on the VMs, so uploads and imports work on DEV: MinIO (or the OQ-022 store) in `infrastructure/deploy/compose.yaml`, reachable by browsers at its own port or host (signed URLs break behind a path prefix), `S3_*`/`S3_PUBLIC_ENDPOINT` in `install.sh`, buckets created, the web CSP `connect-src` opened for that origin, and ClamAV sized for the VM (or scanning skipped there, recorded). Also move the local compose MinIO and `mc` images off quay.io (no longer pullable). Then 1.7. PR #22 (1.6b) is open; merge it first. DEV still has no organisation: bootstrap it with `org:bootstrap`, `user:create` and `user:grant` (docs/runbooks/auth.md).
 
 **Repo:** https://github.com/Shivamchaubey14/indent-easy-platform (public). `main` and `dev` are protected. Branches are `feature/*` → PR → `dev`, and `dev` → PR → `main` at phase milestones. The owner merges PRs; they are not merged from the build session.
 
@@ -209,4 +209,5 @@ end of every session. Roadmap phases come from SRS §62; timelines are not estim
 - The events relay test asserted an empty outbox, which parallel test files can break; it now checks that its own event is published once.
 - Windows Defender deletes EICAR test files written to disk; build the test string at run time.
 - First-load JS 184.1 KB gzip.
+- quay.io/minio no longer serves images without authentication (401 even for `:latest`); the laptop only has a cached copy from September 2025. CI now runs Chainguard's MinIO (`cgr.dev/chainguard/minio`, built from source, non-root, pinned by digest); the file and import tests pass on it. The local compose file still names quay.io images (`minio`, `mc`), so a fresh machine cannot pull them: switch them in 1.6c.
 - **Not usable on DEV yet:** the VM stack has no object store and its CSP allows `connect-src 'self'` only (next task, 1.6c).
