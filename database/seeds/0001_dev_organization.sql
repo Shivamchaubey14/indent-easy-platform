@@ -12,6 +12,7 @@ SELECT identity.seed_role_templates('0192a000-0000-7000-8000-000000000001');
 
 -- Units of measure, categories and external systems (migration 0005).
 SELECT catalog.seed_reference('0192a000-0000-7000-8000-000000000001');
+SELECT docs.seed_document_types('0192a000-0000-7000-8000-000000000001');
 
 INSERT INTO config.feature_flag (organization_id, key, enabled, description)
 SELECT '0192a000-0000-7000-8000-000000000001', f.key, f.enabled, f.description

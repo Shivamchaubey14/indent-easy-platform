@@ -21,6 +21,8 @@ export interface AppDependencies {
   graphql: GraphQLServer;
   buildInfo: BuildInfo;
   identity: Pick<Identity, 'authenticate' | 'handlers'>;
+  /** Handlers of the other modules' REST operations (files, …). Tests may leave some out. */
+  handlers?: Partial<RestHandlers>;
 }
 
 /** Builds the HTTP application. Kept free of listening/sockets so tests can drive it directly. */
@@ -32,6 +34,7 @@ export function createApp({
   graphql,
   buildInfo,
   identity,
+  handlers: moduleHandlers = {},
 }: AppDependencies): Express {
   const app = express();
   app.disable('x-powered-by');
@@ -60,7 +63,8 @@ export function createApp({
   });
   app.use('/api', express.json({ limit: '1mb' }));
 
-  const handlers: RestHandlers = {
+  const handlers: Partial<RestHandlers> = {
+    ...moduleHandlers,
     ...healthHandlers(health),
     ...identity.handlers,
     version: (_req, res) => {
@@ -69,7 +73,8 @@ export function createApp({
   };
   for (const route of REST_ROUTES) {
     if ('listener' in route) continue;
-    app[route.method](toExpressPath(route.path), handlers[route.operationId]);
+    const handler = handlers[route.operationId];
+    if (handler) app[route.method](toExpressPath(route.path), handler);
   }
 
   app.use(notFound());

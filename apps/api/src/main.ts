@@ -3,7 +3,8 @@ import { loadTypeDefs } from '@ie/graphql/schema';
 import { createApp } from './app.js';
 import { createGraphQLServer } from './graphql/server.js';
 import { postgresFeatureFlags } from './modules/configuration/index.js';
-import { createIdentity } from './modules/identity/index.js';
+import { createDocuments, filesHandlers } from './modules/documents/index.js';
+import { createIdentity, requirePrincipal } from './modules/identity/index.js';
 import { createCatalog } from './modules/catalog/index.js';
 import { loadDirectory, organizationAdmin } from './modules/organization/index.js';
 import { loadGrants } from './shared/authorization/index.js';
@@ -65,7 +66,27 @@ const graphql = createGraphQLServer({
   },
 });
 
-const app = createApp({ config, logger, metrics, health, graphql, buildInfo: info, identity });
+const documents = createDocuments(config, pool, logger);
+const files = filesHandlers({
+  service: documents.service,
+  principal: (res) => requirePrincipal(res),
+  requester: async (principal) => ({
+    organizationId: principal.organizationId,
+    userId: principal.userId,
+    grants: (await loadGrants(pool, principal, config.timezone)).grants,
+  }),
+});
+
+const app = createApp({
+  config,
+  logger,
+  metrics,
+  health,
+  graphql,
+  buildInfo: info,
+  identity,
+  handlers: files,
+});
 const server = createServer(app);
 const metricsServer = startMetricsServer(metrics, config.http.metricsPort, logger);
 

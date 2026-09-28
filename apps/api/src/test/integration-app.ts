@@ -10,7 +10,8 @@ import { pino } from 'pino';
 import { createApp } from '../app.js';
 import { createGraphQLServer } from '../graphql/server.js';
 import { postgresFeatureFlags } from '../modules/configuration/index.js';
-import { createIdentity, type MailMessage } from '../modules/identity/index.js';
+import { createDocuments, filesHandlers } from '../modules/documents/index.js';
+import { createIdentity, type MailMessage, requirePrincipal } from '../modules/identity/index.js';
 import { createCatalog } from '../modules/catalog/index.js';
 import { loadDirectory, organizationAdmin } from '../modules/organization/index.js';
 import { loadGrants } from '../shared/authorization/index.js';
@@ -56,6 +57,7 @@ export async function integrationApp() {
       catalog.store.existingCategoryIds(organizationId, ids),
     mailer: { send: (message) => (outbox.push(message), Promise.resolve()) },
   });
+  const documents = createDocuments(config, pool, logger);
   const typeDefs = loadTypeDefs();
   const app = createApp({
     config,
@@ -79,12 +81,23 @@ export async function integrationApp() {
     }),
     buildInfo: buildInfo(typeDefs),
     identity,
+    handlers: filesHandlers({
+      service: documents.service,
+      principal: (res) => requirePrincipal(res),
+      requester: async (principal) => ({
+        organizationId: principal.organizationId,
+        userId: principal.userId,
+        grants: (await loadGrants(pool, principal, config.timezone)).grants,
+      }),
+    }),
   });
   return {
     app,
+    config,
     pool,
     redis,
     outbox,
+    documents,
     close: async () => {
       await pool.end();
       redis.disconnect();

@@ -79,6 +79,13 @@ services:
       - '3000:3000'
     profiles: ['pdf']
 
+  # Malware scanning of uploads (clamd). Needs about 1 GB of memory; opt-in on the laptop.
+  clamav:
+    image: clamav/clamav:1.4
+    ports:
+      - '3310:3310'
+    profiles: ['scan']
+
 volumes:
   pgdata:
   redisdata:

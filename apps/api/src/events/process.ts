@@ -1,7 +1,7 @@
 import type { DomainEvent } from '@ie/events';
 import type { Pool } from '../shared/database.js';
 import type { Logger } from '../shared/logging.js';
-import type { Consumer } from './consumers.js';
+import type { Consumer, WorkerServices } from './consumers.js';
 import { OutOfOrderError, decideOrdering } from './ordering.js';
 
 export type ProcessResult = 'processed' | 'duplicate' | 'skipped';
@@ -19,6 +19,7 @@ export async function processEvent(
   consumer: Consumer,
   event: DomainEvent,
   logger: Logger,
+  services: WorkerServices = {},
 ): Promise<ProcessResult> {
   const client = await pool.connect();
   try {
@@ -55,7 +56,11 @@ export async function processEvent(
       }
     }
 
-    await consumer.handle(event, { client, logger: logger.child({ consumer: consumer.name }) });
+    await consumer.handle(event, {
+      client,
+      logger: logger.child({ consumer: consumer.name }),
+      services,
+    });
 
     if (consumer.ordered) {
       await client.query(

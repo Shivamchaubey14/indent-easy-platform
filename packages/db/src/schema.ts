@@ -1162,6 +1162,7 @@ export const documentVersionInDocs = docs.table(
   'document_version',
   {
     id: uuid().defaultRandom().primaryKey().notNull(),
+    organizationId: uuid('organization_id').notNull(),
     documentId: uuid('document_id').notNull(),
     versionNo: integer('version_no').notNull(),
     storageKey: text('storage_key').notNull(),
@@ -1194,6 +1195,18 @@ export const documentVersionInDocs = docs.table(
       'ck_scan_status',
       sql`scan_status = ANY (ARRAY['PENDING'::text, 'CLEAN'::text, 'INFECTED'::text, 'ERROR'::text, 'SKIPPED'::text])`,
     ),
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organizationInOrg.id],
+      name: 'document_version_organization_id_fkey',
+    }),
+    pgPolicy('p_org_isolation', {
+      as: 'permissive',
+      for: 'all',
+      to: ['public'],
+      using: sql`(organization_id = (NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid)`,
+      withCheck: sql`(organization_id = (NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid)`,
+    }),
   ],
 );
 
@@ -2440,6 +2453,7 @@ export const importErrorInIo = io.table(
       cache: 1,
     }),
     batchId: uuid('batch_id').notNull(),
+    organizationId: uuid('organization_id').notNull(),
     rowIndex: integer('row_index').notNull(),
     field: text(),
     value: text(),
@@ -2459,6 +2473,18 @@ export const importErrorInIo = io.table(
       foreignColumns: [importBatchInIo.id],
       name: 'import_error_batch_id_fkey',
     }).onDelete('cascade'),
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organizationInOrg.id],
+      name: 'import_error_organization_id_fkey',
+    }),
+    pgPolicy('p_org_isolation', {
+      as: 'permissive',
+      for: 'all',
+      to: ['public'],
+      using: sql`(organization_id = (NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid)`,
+      withCheck: sql`(organization_id = (NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid)`,
+    }),
   ],
 );
 
@@ -2474,6 +2500,7 @@ export const importRowAuditInIo = io.table(
       cache: 1,
     }),
     batchId: uuid('batch_id').notNull(),
+    organizationId: uuid('organization_id').notNull(),
     rowIndex: integer('row_index').notNull(),
     action: text().notNull(),
     entityType: text('entity_type').notNull(),
@@ -2490,6 +2517,18 @@ export const importRowAuditInIo = io.table(
       'ck_row_audit_action',
       sql`action = ANY (ARRAY['CREATE'::text, 'UPDATE'::text, 'MERGE'::text, 'SKIP'::text, 'REJECT'::text, 'DEACTIVATE'::text])`,
     ),
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organizationInOrg.id],
+      name: 'import_row_audit_organization_id_fkey',
+    }),
+    pgPolicy('p_org_isolation', {
+      as: 'permissive',
+      for: 'all',
+      to: ['public'],
+      using: sql`(organization_id = (NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid)`,
+      withCheck: sql`(organization_id = (NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid)`,
+    }),
   ],
 );
 
@@ -4249,6 +4288,7 @@ export const importBatchInIo = io.table(
       .notNull(),
     startedAt: timestamp('started_at', { withTimezone: true, mode: 'string' }),
     completedAt: timestamp('completed_at', { withTimezone: true, mode: 'string' }),
+    leaseUntil: timestamp('lease_until', { withTimezone: true, mode: 'string' }),
   },
   (table): PgTableExtraConfigValue[] => [
     uniqueIndex('uq_import_file')
@@ -4306,6 +4346,9 @@ export const importBatchInIo = io.table(
       'ck_import_status',
       sql`status = ANY (ARRAY['UPLOADED'::text, 'VALIDATING'::text, 'VALIDATION_FAILED'::text, 'PREVIEW_READY'::text, 'PROCESSING'::text, 'PROCESSED'::text, 'PROCESSED_WITH_EXCEPTIONS'::text, 'PARTIAL'::text, 'FAILED'::text, 'DISCARDED'::text, 'PUBLISHED'::text, 'SUPERSEDED'::text])`,
     ),
+    index('ix_import_batch_pending')
+      .using('btree', table.status.asc().nullsLast().op('text_ops'))
+      .where(sql`(status = ANY (ARRAY['UPLOADED'::text, 'VALIDATING'::text, 'PROCESSING'::text]))`),
   ],
 );
 
@@ -4640,6 +4683,7 @@ export const documentLinkInDocs = docs.table(
   'document_link',
   {
     documentId: uuid('document_id').notNull(),
+    organizationId: uuid('organization_id').notNull(),
     entityType: text('entity_type').notNull(),
     entityId: uuid('entity_id').notNull(),
     role: text().default('ATTACHMENT').notNull(),
@@ -4661,6 +4705,18 @@ export const documentLinkInDocs = docs.table(
     primaryKey({
       columns: [table.documentId, table.entityType, table.entityId, table.role],
       name: 'document_link_pkey',
+    }),
+    foreignKey({
+      columns: [table.organizationId],
+      foreignColumns: [organizationInOrg.id],
+      name: 'document_link_organization_id_fkey',
+    }),
+    pgPolicy('p_org_isolation', {
+      as: 'permissive',
+      for: 'all',
+      to: ['public'],
+      using: sql`(organization_id = (NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid)`,
+      withCheck: sql`(organization_id = (NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid)`,
     }),
   ],
 );
