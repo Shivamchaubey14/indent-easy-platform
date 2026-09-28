@@ -75,6 +75,7 @@ export const UserQuery = graphql(`
       reportsTo {
         id
         displayName
+        employeeCode
       }
       roles {
         role {
@@ -88,6 +89,10 @@ export const UserQuery = graphql(`
           name
         }
         scopeDepartments {
+          id
+          name
+        }
+        scopeCategories {
           id
           name
         }
@@ -127,6 +132,11 @@ export const ReferenceDataQuery = graphql(`
       name
     }
     designations {
+      id
+      code
+      name
+    }
+    productCategories {
       id
       code
       name

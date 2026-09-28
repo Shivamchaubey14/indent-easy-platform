@@ -51,6 +51,7 @@ const reference = {
   ],
   departments: [{ id: 'd1', code: 'DAIRY', name: 'Dairy' }],
   designations: [],
+  productCategories: [{ id: 'c1', code: 'CONSUMABLE', name: 'Consumable' }],
 };
 
 /** Answers each GraphQL document by its operation name. */
@@ -131,11 +132,31 @@ describe('creating a user', () => {
         ],
       },
     }));
-    serve({ AdminReferenceData: reference, AdminCreateUser: create });
+    serve({
+      AdminReferenceData: reference,
+      AdminCreateUser: create,
+      UserSearch: {
+        users: {
+          edges: [
+            {
+              node: {
+                id: 'u-hod',
+                displayName: 'Sunita Verma',
+                employeeCode: 'E007',
+                email: 'sunita@shwetdhara.in',
+              },
+            },
+          ],
+        },
+      },
+    });
     await renderScreen(() => <UserPage />);
     await fillProfile();
+    await userEvent.type(screen.getByLabelText('Reports to'), 'sun');
+    await userEvent.click(await screen.findByRole('button', { name: /Sunita Verma \(E007\)/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Add role' }));
     await userEvent.selectOptions(screen.getByLabelText('Role (required)'), 'r-super');
+    await userEvent.click(screen.getByLabelText('Consumable'));
     await userEvent.click(screen.getByRole('button', { name: 'Create user' }));
 
     await waitFor(() => expect(create).toHaveBeenCalled());
@@ -144,7 +165,15 @@ describe('creating a user', () => {
         email: 'ramesh@shwetdhara.in',
         displayName: 'Ramesh Kumar',
         primaryLocationId: 'l1',
-        roles: [{ roleId: 'r-super', scopeLocationIds: [], scopeDepartmentIds: [] }],
+        reportsToId: 'u-hod',
+        roles: [
+          {
+            roleId: 'r-super',
+            scopeLocationIds: [],
+            scopeDepartmentIds: [],
+            scopeCategoryIds: ['c1'],
+          },
+        ],
         sendInvite: true,
       }),
     });

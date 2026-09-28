@@ -6,6 +6,7 @@ export interface AssignmentDraft {
   roleId: string;
   scopeLocationIds: string[];
   scopeDepartmentIds: string[];
+  scopeCategoryIds: string[];
   validFrom: string;
   validTo: string;
 }
@@ -20,6 +21,7 @@ export const emptyAssignment = (): AssignmentDraft => ({
   roleId: '',
   scopeLocationIds: [],
   scopeDepartmentIds: [],
+  scopeCategoryIds: [],
   validFrom: '',
   validTo: '',
 });
@@ -29,6 +31,7 @@ export const toAssignmentInput = (a: AssignmentDraft) => ({
   roleId: a.roleId,
   scopeLocationIds: a.scopeLocationIds,
   scopeDepartmentIds: a.scopeDepartmentIds,
+  scopeCategoryIds: a.scopeCategoryIds,
   ...(a.validFrom && { validFrom: a.validFrom }),
   ...(a.validTo && { validTo: a.validTo }),
 });
@@ -46,6 +49,7 @@ export function RolesEditor({
   roles,
   locations,
   departments,
+  categories,
   errors,
 }: {
   value: AssignmentDraft[];
@@ -53,6 +57,8 @@ export function RolesEditor({
   roles: readonly (Option & { code: string })[];
   locations: readonly Option[];
   departments: readonly Option[];
+  /** Product categories, for approvers who look after some categories only. */
+  categories: readonly Option[];
   /** Messages for an assignment, by index. */
   errors?: Record<number, string>;
 }) {
@@ -119,6 +125,26 @@ export function RolesEditor({
                     onChange={() =>
                       update(index, {
                         scopeDepartmentIds: toggle(assignment.scopeDepartmentIds, department.id),
+                      })
+                    }
+                  />
+                ))}
+              </div>
+            </fieldset>
+          )}
+          {categories.length > 0 && (
+            <fieldset className="space-y-2">
+              <legend className="text-body-sm font-medium">{t('admin.scopeCategories')}</legend>
+              <p className="text-caption text-text-secondary">{t('admin.scopeCategoriesHint')}</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {categories.map((category) => (
+                  <Checkbox
+                    key={category.id}
+                    label={category.name}
+                    checked={assignment.scopeCategoryIds.includes(category.id)}
+                    onChange={() =>
+                      update(index, {
+                        scopeCategoryIds: toggle(assignment.scopeCategoryIds, category.id),
                       })
                     }
                   />
