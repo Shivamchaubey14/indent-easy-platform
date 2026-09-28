@@ -60,6 +60,7 @@ try {
   }
   const roles = await withOrgContext(pool, organizationId, async (client) => {
     await client.query('SELECT identity.seed_role_templates($1)', [organizationId]);
+    await client.query('SELECT catalog.seed_reference($1)', [organizationId]);
     const { rows } = await client.query<{ count: number }>(
       'SELECT count(*)::int AS count FROM identity.role WHERE is_system',
     );

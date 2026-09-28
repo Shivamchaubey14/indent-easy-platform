@@ -49,6 +49,8 @@ export interface AdminDependencies {
   publicBaseUrl: string;
   accessTtlSeconds: number;
   directory: (organizationId: string) => Promise<Directory>;
+  /** Which of these ids are product categories (role category scopes). */
+  knownCategories: (organizationId: string, ids: string[]) => Promise<Set<string>>;
 }
 
 /** What the acting administrator is: who, and what they may grant. */
@@ -337,6 +339,10 @@ export class AdminService {
       roles.map((r) => r.roleId).filter((id) => UUID.test(id)),
     );
     const directory = await this.deps.directory(org);
+    const categories = await this.deps.knownCategories(
+      org,
+      roles.flatMap((r) => r.scopeCategoryIds ?? []),
+    );
     const problems: UserError[] = [];
     roles.forEach((role, i) => {
       const at = [...path, String(i)];
@@ -361,6 +367,10 @@ export class AdminService {
           problems.push(
             fieldError([...at, 'scopeDepartmentIds', String(j)], 'validation.notFound'),
           );
+      });
+      (role.scopeCategoryIds ?? []).forEach((id, j) => {
+        if (!categories.has(id))
+          problems.push(fieldError([...at, 'scopeCategoryIds', String(j)], 'validation.notFound'));
       });
     });
     const ids = roles.map((r) => r.roleId);

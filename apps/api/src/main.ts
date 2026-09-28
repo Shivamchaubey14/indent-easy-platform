@@ -4,6 +4,7 @@ import { createApp } from './app.js';
 import { createGraphQLServer } from './graphql/server.js';
 import { postgresFeatureFlags } from './modules/configuration/index.js';
 import { createIdentity } from './modules/identity/index.js';
+import { createCatalog } from './modules/catalog/index.js';
 import { loadDirectory, organizationAdmin } from './modules/organization/index.js';
 import { loadGrants } from './shared/authorization/index.js';
 import { migrationStatus } from '@ie/db';
@@ -39,12 +40,14 @@ const health = new Health(
   logger,
 );
 
+const catalog = createCatalog(pool);
 const identity = await createIdentity({
   config,
   pool,
   redis,
   logger,
   directory: (organizationId) => loadDirectory(pool, organizationId),
+  knownCategories: (organizationId, ids) => catalog.store.existingCategoryIds(organizationId, ids),
 });
 const graphql = createGraphQLServer({
   config,
@@ -55,6 +58,7 @@ const graphql = createGraphQLServer({
     identity: identity.queries,
     admin: identity.admin,
     organizationAdmin: organizationAdmin(pool),
+    catalog,
     directory: (organizationId) => loadDirectory(pool, organizationId),
     access: (principal) => loadGrants(pool, principal, config.timezone),
     denied: identity.recordDenied,

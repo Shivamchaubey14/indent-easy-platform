@@ -110,6 +110,7 @@ function build(options: BuildOptions = {}) {
         permissionCatalogue: () => Promise.resolve([]),
       },
       organizationAdmin: {} as Services['organizationAdmin'],
+      catalog: {} as Services['catalog'],
       directory: () => Promise.reject(new Error('not used')),
       access: (p) =>
         options.rolesChanged

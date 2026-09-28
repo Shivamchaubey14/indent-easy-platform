@@ -1,3 +1,4 @@
+import type { CatalogQueries } from '../modules/catalog/index.js';
 import type { FeatureFlagReader } from '../modules/configuration/index.js';
 import type { AdminQueries, IdentityQueries } from '../modules/identity/index.js';
 import type { Directory, OrganizationAdmin } from '../modules/organization/index.js';
@@ -9,6 +10,7 @@ export interface Services {
   identity: IdentityQueries;
   admin: AdminQueries;
   organizationAdmin: OrganizationAdmin;
+  catalog: CatalogQueries;
   directory: (organizationId: string) => Promise<Directory>;
   /** Loads the caller's current grants; refuses tokens older than their last role change. */
   access: (principal: Principal) => Promise<LoadedGrants>;

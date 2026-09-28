@@ -1,6 +1,7 @@
 import type { GraphQLContext } from '../../../graphql/context.js';
 import type { Principal } from '../../../shared/context.js';
 import { ApiError } from '../../../shared/errors.js';
+import { categoriesById } from '../../catalog/index.js';
 import type {
   RoleAssignmentRecord,
   SessionRecord,
@@ -68,7 +69,7 @@ export const identityResolvers = {
       const directory = await ctx.directory();
       return a.scopeDepartmentIds.map((id) => directory.department(id)).filter(present);
     },
-    // Product categories arrive with the catalogue (Phase 1.6); until then none can be resolved.
-    scopeCategories: () => [],
+    scopeCategories: (a: RoleAssignmentRecord, _args: unknown, ctx: GraphQLContext) =>
+      categoriesById(ctx, a.scopeCategoryIds),
   },
 };

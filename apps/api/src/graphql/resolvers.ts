@@ -1,3 +1,4 @@
+import { catalogResolvers } from '../modules/catalog/index.js';
 import { configurationResolvers } from '../modules/configuration/index.js';
 import { adminResolvers, identityResolvers } from '../modules/identity/index.js';
 import {
@@ -23,6 +24,7 @@ export const moduleResolvers: Resolvers = mergeResolvers(
   adminResolvers,
   organizationResolvers,
   organizationAdminResolvers,
+  catalogResolvers,
 );
 
 export interface ImplementedOperations {
