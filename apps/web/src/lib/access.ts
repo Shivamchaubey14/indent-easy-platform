@@ -31,6 +31,11 @@ export const MASTER_SECTIONS = [
     label: 'masters.codeSystems',
     permissions: ['admin:master_manage'],
   },
+  {
+    to: '/masters/imports',
+    label: 'masters.imports',
+    permissions: ['product:map_external', 'vendor:map_products', 'mpp:import'],
+  },
 ] as const;
 
 export const canUseMasters = (permissions: readonly string[]) =>
