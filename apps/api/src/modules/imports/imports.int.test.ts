@@ -435,7 +435,7 @@ describe('product mapping import', () => {
         'Cattle feed',
         Number(sap),
         'Cattle Feed 50 Kg',
-        `ND${run}`,
+        `ND${run}X`,
         'Pashu Aahar',
         'KG',
         'NDDB',
@@ -444,7 +444,7 @@ describe('product mapping import', () => {
       ['NO-SUCH', 'Ghost', '1234567', 'Ghost', null, null, null, null],
     ]);
     const issues = batch.errors.edges.map((e) => [e.node.rowIndex, e.node.rule, e.node.critical]);
-    // Row 2: NDDB code "ND<run>" has letters after ND → format warning only.
+    // Row 2: NDDB code "ND<run>X" ends in a letter → never the NDDB format, a warning only.
     expect(issues).toContainEqual([2, 'PRODUCT_CODE_FORMAT', false]);
     // Row 3: same SAP code as row 2 for another product → critical conflict; unknown UOM → warning.
     expect(issues).toContainEqual([3, 'CONFLICTING_MAPPINGS', true]);
@@ -473,7 +473,7 @@ describe('product mapping import', () => {
       'Cattle feed',
       sap,
       'Cattle Feed 50 Kg',
-      `ND${run}`,
+      `ND${run}X`,
       'Pashu Aahar',
     ]);
 

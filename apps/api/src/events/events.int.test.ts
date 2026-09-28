@@ -86,15 +86,18 @@ describe('outbox relay', () => {
     });
     const event = await indentCreated(randomUUID(), 1);
 
-    let published = 0;
-    for (let i = 0; i < 5 && published === 0; i++) published += await relay.relayOnce();
-    expect(published).toBeGreaterThanOrEqual(1);
+    // Tests don't run a relay, so other tests' events may wait in the outbox ahead of this one and
+    // the relay publishes in batches: relay until this event is out.
+    const publishedAt = async () =>
+      (
+        await pool.query<{ published_at: Date | null }>(
+          'SELECT published_at FROM events.outbox WHERE id = $1',
+          [event.eventId],
+        )
+      ).rows[0]?.published_at ?? null;
+    for (let i = 0; i < 50 && !(await publishedAt()); i++) await relay.relayOnce();
 
-    const row = await pool.query<{ published_at: Date | null }>(
-      'SELECT published_at FROM events.outbox WHERE id = $1',
-      [event.eventId],
-    );
-    expect(row.rows[0]?.published_at).toBeInstanceOf(Date);
+    expect(await publishedAt()).toBeInstanceOf(Date);
 
     const queue = new Queue(consumerQueue(consumer.name), {
       connection: queues.connection,
