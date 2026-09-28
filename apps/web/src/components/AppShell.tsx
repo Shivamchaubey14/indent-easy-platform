@@ -4,7 +4,7 @@ import { Link, useNavigate } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { signOut } from '../lib/auth';
-import { canAdminister } from '../lib/access';
+import { canAdminister, canUseMasters } from '../lib/access';
 import { meQuery } from '../lib/me';
 import { useUiStore } from '../stores/ui';
 import { LanguageToggle, ThemeSelect } from './Preferences';
@@ -20,6 +20,7 @@ const NAV = [
   { key: 'mppSales', enabled: false },
   { key: 'finance', enabled: false },
   { key: 'reports', enabled: false },
+  { key: 'masters', to: '/masters', enabled: 'masters' },
   { key: 'admin', to: '/admin', enabled: 'admin' },
 ] as const;
 
@@ -29,8 +30,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   const toggleNav = useUiStore((s) => s.toggleNav);
   const me = useQuery(meQuery);
   const permissions = me.data?.permissions ?? [];
-  // Administration appears only for people who can use it; unbuilt workspaces show as "soon".
-  const nav = NAV.filter((item) => item.enabled !== 'admin' || canAdminister(permissions));
+  // Masters and administration appear only for people who can use them; unbuilt workspaces show
+  // as "soon".
+  const nav = NAV.filter(
+    (item) =>
+      (item.enabled !== 'admin' || canAdminister(permissions)) &&
+      (item.enabled !== 'masters' || canUseMasters(permissions)),
+  );
 
   return (
     <div className="flex min-h-screen bg-background text-text-primary">
