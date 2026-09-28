@@ -6,7 +6,7 @@ import { id, text } from './primitives.js';
  * form shows the same messages the server would return. Messages are i18n keys.
  */
 
-const required = (max: number) =>
+export const required = (max: number) =>
   z.string().trim().min(1, 'validation.required').max(max, 'validation.tooLong');
 
 /** Upper-case codes such as BMC-01 or STORE_USER; typed in any case, stored upper-case. */
@@ -23,7 +23,7 @@ export const locationCode = code(/^[A-Z0-9][A-Z0-9_-]{0,19}$/);
 export const masterCode = code(/^[A-Z0-9][A-Z0-9_-]{0,19}$/);
 export const roleCode = code(/^[A-Z][A-Z0-9_]{1,39}$/);
 
-const email = z
+export const email = z
   .string()
   .trim()
   .toLowerCase()
@@ -32,14 +32,14 @@ const email = z
   .pipe(z.email({ message: 'validation.email' }));
 
 /** Indian or international mobile in E.164 (+919876543210); blank means none. */
-const mobile = z
+export const mobile = z
   .string()
   .trim()
   .transform((v) => v.replace(/[\s-]/g, ''))
   .refine((v) => v === '' || /^\+[1-9][0-9]{7,14}$/.test(v), 'validation.mobile')
   .transform((v) => (v === '' ? undefined : v));
 
-const optionalId = z
+export const optionalId = z
   .string()
   .trim()
   .max(128)
