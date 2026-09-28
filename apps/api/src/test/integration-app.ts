@@ -2,7 +2,7 @@
  * The real API app for integration tests: PostgreSQL as the application role, Redis, the
  * identity module and GraphQL with its real services. Only e-mail is captured instead of sent.
  */
-import { BucketAlreadyOwnedByYou, CreateBucketCommand, S3Client } from '@aws-sdk/client-s3';
+import { S3Client } from '@aws-sdk/client-s3';
 import { type AppConfig, loadConfig } from '@ie/config';
 import { loadTypeDefs } from '@ie/graphql/schema';
 import { Redis } from 'ioredis';
@@ -11,7 +11,7 @@ import { pino } from 'pino';
 import { createApp } from '../app.js';
 import { createGraphQLServer } from '../graphql/server.js';
 import { postgresFeatureFlags } from '../modules/configuration/index.js';
-import { createDocuments, filesHandlers } from '../modules/documents/index.js';
+import { createDocuments, filesHandlers, setUpStorage } from '../modules/documents/index.js';
 import { createIdentity, type MailMessage, requirePrincipal } from '../modules/identity/index.js';
 import { CATALOG_IMPORTS, createCatalog } from '../modules/catalog/index.js';
 import { createImports, importsHandlers } from '../modules/imports/index.js';
@@ -119,9 +119,10 @@ export async function integrationApp() {
   };
 }
 
-/** Creates the object storage buckets the tests use, if they don't exist yet. */
+/** Sets up the object storage the tests use (the deploy job's code) and returns a client for it. */
 export async function ensureBuckets(config: AppConfig): Promise<S3Client> {
-  const s3 = new S3Client({
+  await setUpStorage(config.storage);
+  return new S3Client({
     region: config.storage.region,
     endpoint: config.storage.endpoint,
     forcePathStyle: true,
@@ -130,12 +131,4 @@ export async function ensureBuckets(config: AppConfig): Promise<S3Client> {
       secretAccessKey: config.storage.secretAccessKey ?? '',
     },
   });
-  for (const bucket of Object.values(config.storage.buckets)) {
-    await s3.send(new CreateBucketCommand({ Bucket: bucket })).catch((err: unknown) => {
-      const name = (err as { name?: string }).name;
-      if (!(err instanceof BucketAlreadyOwnedByYou) && name !== 'BucketAlreadyOwnedByYou')
-        throw err;
-    });
-  }
-  return s3;
 }

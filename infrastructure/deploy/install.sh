@@ -65,6 +65,7 @@ POSTGRES_PASSWORD=$(secret)
 IE_APP_PASSWORD=$(secret)
 JWT_SIGNING_KEYS=$(signing_key)
 CSRF_SECRET=$(secret)
+STORAGE_PASSWORD=$(secret)
 GRAPHQL_INTROSPECTION=$INTROSPECTION
 ENV
   echo "generated secrets in $D/.env"
@@ -75,6 +76,12 @@ if ! grep -q '^JWT_SIGNING_KEYS=k[0-9]*:' "$D/.env"; then
   # A release that failed only for want of this key may now be deployed again.
   rm -f "$D/state/failed"
   echo "replaced the placeholder access-token signing key"
+fi
+# VMs installed before object storage existed have no storage password yet.
+if ! grep -q '^STORAGE_PASSWORD=' "$D/.env"; then
+  printf 'STORAGE_PASSWORD=%s\n' "$(openssl rand -base64 36 | tr -d '/+=\n' | cut -c1-40)" >>"$D/.env"
+  rm -f "$D/state/failed"
+  echo "added the object storage password"
 fi
 chmod 600 "$D/.env"
 

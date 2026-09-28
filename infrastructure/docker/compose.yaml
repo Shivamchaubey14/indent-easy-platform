@@ -41,29 +41,28 @@ services:
       timeout: 3s
       retries: 20
 
+  # quay.io/minio stopped anonymous pulls after Sep 2025; Chainguard builds MinIO from source. It
+  # runs as UID 65532, so minio-volume first gives it the data volume. Buckets, versioning and
+  # expiry are set by `pnpm storage:setup` (run by `pnpm infra:up`).
   minio:
-    image: quay.io/minio/minio:latest # Docker Hub image removed; community builds frozen Sep 2025
-    command: ['server', '/data', '--console-address', ':9001']
+    image: cgr.dev/chainguard/minio@sha256:6a1d0b45c8669726bba580ced0bfa4cb9fdeed1ed636dfabd81d1577beb6937b
+    command: ['server', '/data']
     environment:
       MINIO_ROOT_USER: ie_minio
       MINIO_ROOT_PASSWORD: ie_minio_local_only
     ports:
       - '9000:9000'
-      - '9001:9001'
     volumes:
       - miniodata:/data
-
-  # Creates the four buckets named in SRS §55.2, then exits.
-  minio-init:
-    image: quay.io/minio/mc:latest
     depends_on:
-      - minio
-    entrypoint: >
-      /bin/sh -c "
-      until mc alias set local http://minio:9000 ie_minio ie_minio_local_only; do sleep 1; done;
-      for b in ie-documents ie-exports ie-imports ie-quarantine; do mc mb --ignore-existing local/$$b; done;
-      mc version enable local/ie-documents;
-      "
+      minio-volume:
+        condition: service_completed_successfully
+
+  minio-volume:
+    image: alpine:3.22
+    command: ['chown', '-R', '65532:65532', '/data']
+    volumes:
+      - miniodata:/data
 
   # Catches all outgoing e-mail locally. Web UI on http://localhost:8025
   mailpit:
