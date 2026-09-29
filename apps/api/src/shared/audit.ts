@@ -34,8 +34,18 @@ export function diffOf(
   return diff;
 }
 
-/** JSON with sorted keys, so the same record always hashes the same way. */
-function canonical(value: unknown): string {
+/**
+ * JSON with sorted keys, so the same record always hashes the same way. Values are taken as they
+ * are stored (toJSON first): a Date is hashed as its ISO string, exactly what the jsonb column
+ * holds, so the hash covers it and a verifier reading the row can recompute it.
+ */
+export function canonical(input: unknown): string {
+  const value =
+    input &&
+    typeof input === 'object' &&
+    typeof (input as { toJSON?: unknown }).toJSON === 'function'
+      ? (input as { toJSON: () => unknown }).toJSON()
+      : input;
   if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
   if (value && typeof value === 'object') {
     const entries = Object.entries(value as Record<string, unknown>)
@@ -116,4 +126,71 @@ export async function recordAudit(client: PoolClient, entry: AuditEntry): Promis
       hash,
     ],
   );
+}
+
+export interface ChainCheck {
+  day: string;
+  records: number;
+  intact: boolean;
+  /** The first record whose link or hash does not match, when the chain is broken. */
+  brokenAt: string | null;
+}
+
+/**
+ * Recomputes one organisation-day of the audit chain (AUD-004): every record must point at the
+ * previous record's hash, and its own hash must match its content. Run in the organisation's
+ * transaction.
+ */
+export async function verifyAuditChain(
+  client: PoolClient,
+  organizationId: string,
+  day: string,
+): Promise<ChainCheck> {
+  const { rows } = await client.query<{
+    id: string;
+    occurred_at: Date;
+    actor_id: string | null;
+    actor_type: string;
+    action: string;
+    entity_type: string;
+    entity_id: string;
+    entity_number: string | null;
+    before: unknown;
+    after: unknown;
+    prev_hash: Buffer | null;
+    hash: Buffer | null;
+  }>(
+    `SELECT id, occurred_at, actor_id, actor_type, action, entity_type, entity_id, entity_number,
+            before, after, prev_hash, hash
+     FROM audit.audit_log
+     WHERE organization_id = $1 AND occurred_at >= $2::date AND occurred_at < $2::date + 1
+     ORDER BY occurred_at, id`,
+    [organizationId, day],
+  );
+  let previous: Buffer | null = null;
+  for (const row of rows) {
+    const record = {
+      id: row.id,
+      occurredAt: row.occurred_at.toISOString(),
+      organizationId,
+      actorId: row.actor_id,
+      actorType: row.actor_type,
+      action: row.action,
+      entityType: row.entity_type,
+      entityId: row.entity_id,
+      entityNumber: row.entity_number,
+      before: row.before,
+      after: row.after,
+    };
+    const expected = createHash('sha256')
+      .update(previous ?? Buffer.alloc(0))
+      .update(canonical(record))
+      .digest();
+    const linked = previous === null ? row.prev_hash === null : row.prev_hash?.equals(previous);
+    if (!linked || !row.hash?.equals(expected)) {
+      return { day, records: rows.length, intact: false, brokenAt: row.id };
+    }
+    previous = row.hash;
+  }
+  return { day, records: rows.length, intact: true, brokenAt: null };
 }
