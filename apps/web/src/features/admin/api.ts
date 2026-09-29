@@ -314,3 +314,145 @@ export const referenceDataQuery = queryOptions({
   queryFn: () => gql(ReferenceDataQuery),
   staleTime: 60_000,
 });
+
+// ---- Number series, settings, feature flags, audit (SRS §11.18, §11.19) ------------------------
+
+export const NumberSeriesQuery = graphql(`
+  query AdminNumberSeries {
+    numberSeries {
+      id
+      docType
+      fiscalYear
+      prefix
+      padding
+      nextValue
+      resetPolicy
+      preview
+      location {
+        id
+        name
+      }
+    }
+  }
+`);
+
+export const UpdateNumberSeriesMutation = graphql(`
+  mutation AdminUpdateNumberSeries($input: UpdateNumberSeriesInput!) {
+    updateNumberSeries(input: $input) {
+      series {
+        id
+        preview
+      }
+      userErrors {
+        code
+        message
+        field
+        details
+      }
+    }
+  }
+`);
+
+export const SettingsQuery = graphql(`
+  query AdminSettings {
+    settings {
+      key
+      value
+      defaultValue
+      isDefault
+      source
+      updatedAt
+      updatedBy {
+        id
+        displayName
+      }
+      input {
+        kind
+        min
+        max
+        step
+        unit
+      }
+    }
+  }
+`);
+
+export const UpdateSettingMutation = graphql(`
+  mutation AdminUpdateSetting($key: String!, $value: JSON!) {
+    updateSetting(input: { key: $key, value: $value }) {
+      setting {
+        key
+        value
+        isDefault
+      }
+      userErrors {
+        code
+        message
+        field
+        details
+      }
+    }
+  }
+`);
+
+export const FeatureFlagsQuery = graphql(`
+  query AdminFeatureFlags {
+    featureFlags {
+      key
+      enabled
+      rules
+      description
+    }
+  }
+`);
+
+export const SetFeatureFlagMutation = graphql(`
+  mutation AdminSetFeatureFlag($input: SetFeatureFlagInput!) {
+    setFeatureFlag(input: $input) {
+      key
+      enabled
+      rules
+    }
+  }
+`);
+
+export const AuditLogQuery = graphql(`
+  query AdminAuditLog($filter: AuditFilter, $pagination: PaginationInput) {
+    auditLog(filter: $filter, pagination: $pagination) {
+      totalCount
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+      edges {
+        node {
+          id
+          occurredAt
+          action
+          entityType
+          entityId
+          entityNumber
+          before
+          after
+          requestId
+          channel
+          actor {
+            id
+            displayName
+          }
+        }
+      }
+    }
+  }
+`);
+
+export const AuditChainCheckQuery = graphql(`
+  query AdminAuditChainCheck($day: Date!) {
+    auditChainCheck(day: $day) {
+      day
+      records
+      intact
+      brokenAt
+    }
+  }
+`);

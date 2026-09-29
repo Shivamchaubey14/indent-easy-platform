@@ -11,6 +11,18 @@ export const ADMIN_SECTIONS = [
   { to: '/admin/roles', label: 'admin.roles', permission: 'admin:role_manage' },
   { to: '/admin/locations', label: 'admin.locations', permission: 'admin:master_manage' },
   { to: '/admin/masters', label: 'admin.masters', permission: 'admin:master_manage' },
+  {
+    to: '/admin/number-series',
+    label: 'admin.numberSeries',
+    permission: 'admin:number_series_manage',
+  },
+  { to: '/admin/settings', label: 'admin.settings', permission: 'admin:settings_manage' },
+  {
+    to: '/admin/feature-flags',
+    label: 'admin.featureFlags',
+    permission: 'admin:feature_flag_manage',
+  },
+  { to: '/admin/audit', label: 'admin.audit', permission: 'audit:read' },
 ] as const;
 
 export function AdminLayout() {
