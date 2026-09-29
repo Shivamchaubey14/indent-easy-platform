@@ -10,9 +10,10 @@ import pg from 'pg';
 import { pino } from 'pino';
 import { createApp } from '../app.js';
 import { createGraphQLServer } from '../graphql/server.js';
-import { postgresFeatureFlags } from '../modules/configuration/index.js';
+import { PostgresConfiguration, postgresFeatureFlags } from '../modules/configuration/index.js';
 import { createDocuments, filesHandlers } from '../modules/documents/index.js';
 import { createIdentity, type MailMessage, requirePrincipal } from '../modules/identity/index.js';
+import { createAudit } from '../modules/audit/index.js';
 import { CATALOG_IMPORTS, createCatalog } from '../modules/catalog/index.js';
 import { createImports, importsHandlers } from '../modules/imports/index.js';
 import { loadDirectory, organizationAdmin } from '../modules/organization/index.js';
@@ -79,6 +80,8 @@ export async function integrationApp() {
       typeDefs,
       services: {
         featureFlags: postgresFeatureFlags(pool),
+        configuration: new PostgresConfiguration(pool),
+        audit: createAudit(pool),
         identity: identity.queries,
         admin: identity.admin,
         organizationAdmin: organizationAdmin(pool),

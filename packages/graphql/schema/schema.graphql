@@ -202,6 +202,15 @@ enum Channel {
   IMPORT
 }
 
+type AuditChainCheck {
+  day: Date!
+  records: Int!
+  "False when a record was changed, removed or inserted after the fact."
+  intact: Boolean!
+  "The first record whose link or hash does not match."
+  brokenAt: ID
+}
+
 type AuditEntryEdge {
   cursor: String!
   node: AuditEntry!
@@ -2997,11 +3006,27 @@ input SaveFilterInput {
 
 type Setting {
   key: String!
+  "The value in force: the stored one, or the default."
   value: JSON!
   scope: String!
   description: String
   updatedAt: DateTime
   updatedBy: UserRef
+  defaultValue: JSON!
+  "True while no administrator has changed it."
+  isDefault: Boolean!
+  "Requirement the setting comes from, e.g. GRN-005."
+  source: String
+  input: SettingInputSpec!
+}
+
+"How the admin console renders a setting's input."
+type SettingInputSpec {
+  kind: String!
+  min: Float
+  max: Float
+  step: Float
+  unit: String
 }
 
 type NumberSeries implements Node {
@@ -3886,6 +3911,8 @@ type Query {
   # Audit & admin
   auditLog(filter: AuditFilter, pagination: PaginationInput): AuditEntryConnection!
     @auth(requires: "audit:read")
+  "Recomputes one day of the audit hash chain (AUD-004)."
+  auditChainCheck(day: Date!): AuditChainCheck! @auth(requires: "audit:read")
   settings(keys: [String!]): [Setting!]! @auth(requires: "admin:settings_manage")
   numberSeries: [NumberSeries!]! @auth(requires: "admin:number_series_manage")
   featureFlags: [FeatureFlag!]!

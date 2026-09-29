@@ -50,6 +50,13 @@
       "when": 1790587127989,
       "tag": "0006_document_import_isolation",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790597850158,
+      "tag": "0007_configuration_reference",
+      "breakpoints": true
     }
   ]
 }

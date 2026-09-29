@@ -14,22 +14,6 @@ SELECT identity.seed_role_templates('0192a000-0000-7000-8000-000000000001');
 SELECT catalog.seed_reference('0192a000-0000-7000-8000-000000000001');
 SELECT docs.seed_document_types('0192a000-0000-7000-8000-000000000001');
 
-INSERT INTO config.feature_flag (organization_id, key, enabled, description)
-SELECT '0192a000-0000-7000-8000-000000000001', f.key, f.enabled, f.description
-FROM (VALUES
-  ('mfa',                         false, 'Multi-factor authentication'),
-  ('otp_login',                   false, 'One-time-password login'),
-  ('rfq',                         false, 'Requests for quotation'),
-  ('inspection_step',             false, 'Quality inspection step in GRN'),
-  ('po_approval_workflow',        false, 'Approval workflow for purchase orders'),
-  ('invoice_matching',            false, 'Invoice three-way match'),
-  ('mobile_offline_advance_sale', false, 'Offline advance sales on mobile'),
-  ('sahayak_sms',                 false, 'SMS to Sahayak on advance sale'),
-  ('dark_mode',                   true,  'Dark colour theme'),
-  ('hindi_ui',                    true,  'Hindi user interface'),
-  ('canary_api',                  false, 'Route a share of traffic to the canary API'),
-  ('legacy_hash_login',           false, 'Accept legacy Django password hashes on first login')
-) AS f(key, enabled, description)
-ON CONFLICT (organization_id, key) DO NOTHING;
+SELECT config.seed_configuration('0192a000-0000-7000-8000-000000000001');
 
 COMMIT;

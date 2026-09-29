@@ -5,3 +5,4 @@ export * from './auth.js';
 export * from './admin.js';
 export * from './catalog.js';
 export * from './files.js';
+export * from './configuration.js';

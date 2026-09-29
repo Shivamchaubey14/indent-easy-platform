@@ -1,3 +1,4 @@
+import { auditResolvers } from '../modules/audit/index.js';
 import { catalogResolvers } from '../modules/catalog/index.js';
 import { configurationResolvers } from '../modules/configuration/index.js';
 import { importResolvers } from '../modules/imports/index.js';
@@ -27,6 +28,7 @@ export const moduleResolvers: Resolvers = mergeResolvers(
   organizationAdminResolvers,
   catalogResolvers,
   importResolvers,
+  auditResolvers,
 );
 
 export interface ImplementedOperations {
