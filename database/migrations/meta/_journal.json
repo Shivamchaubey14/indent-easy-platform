@@ -57,6 +57,13 @@
       "when": 1790597850158,
       "tag": "0007_configuration_reference",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790746659963,
+      "tag": "0008_legacy_staging",
+      "breakpoints": true
     }
   ]
 }

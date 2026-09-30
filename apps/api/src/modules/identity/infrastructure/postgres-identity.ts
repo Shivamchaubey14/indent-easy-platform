@@ -135,6 +135,16 @@ export class PostgresIdentity {
     );
   }
 
+  /** Whether legacy Django password hashes may still be used to sign in (OQ-025, §55.3). */
+  legacyHashLogin(organizationId: string): Promise<boolean> {
+    return withOrgContext(this.pool, organizationId, async (client) => {
+      const { rows } = await client.query<{ enabled: boolean }>(
+        "SELECT enabled FROM config.feature_flag WHERE key = 'legacy_hash_login'",
+      );
+      return rows[0]?.enabled ?? false;
+    });
+  }
+
   async recordFailedLogin(account: Account, lockUntil: Date | null): Promise<void> {
     await withOrgContext(this.pool, account.organizationId, (client) =>
       client.query(
