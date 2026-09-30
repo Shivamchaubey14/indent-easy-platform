@@ -22,9 +22,20 @@ status `SKIPPED` (a warning is logged). Locally, start ClamAV with
 (about 1 GB of memory; stop it when done) and set `CLAMAV_HOST=localhost`.
 
 `S3_PUBLIC_ENDPOINT` is where browsers reach the object store, if not at `S3_ENDPOINT`. Signed
-URLs include the host and path, so the store must be reachable at that address without a path
-prefix. The browser needs CORS on the store for its origin (MinIO allows it by default) and the
-web CSP must allow it in `connect-src`.
+URLs include the host and path, so nothing may rewrite either on the way.
+
+- **Locally** the browser PUTs to MinIO at `localhost:9000` directly (MinIO answers CORS for any
+  origin). `pnpm infra:up` runs `pnpm storage:setup`: buckets, versioning of `ie-documents`,
+  expiry of `ie-imports` (90 days) and `ie-exports` (7 days).
+- **On the VMs** signed URLs are made for the site itself (`S3_PUBLIC_ENDPOINT` =
+  `PUBLIC_BASE_URL`), e.g. `http://dev.indent-easy.local/ie-imports/...`. NGINX passes exactly
+  `/ie-documents/`, `/ie-imports/` and `/ie-exports/` to `storage:9000` with path and `Host`
+  unchanged, and only GET, HEAD and PUT (26 MB). The page therefore never contacts another origin:
+  the CSP keeps `connect-src 'self'` and no CORS is involved. The quarantine bucket is not routed.
+  The agent runs the `storage-setup` job after the migrator.
+- **Malware scanning on the VMs** is off (no `CLAMAV_HOST`): ClamAV needs about 1 GB, more than
+  the laptop VMs have. Uploads are still checked by checksum and file signature and recorded as
+  `SKIPPED`. Size ClamAV in with the office server before go-live (DOC-003).
 
 ## Imports (SRS OP-12)
 
