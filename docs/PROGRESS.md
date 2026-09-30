@@ -231,3 +231,4 @@ end of every session. Roadmap phases come from SRS §62; timelines are not estim
 - Integration tests use a 1,000-iteration Django hash (the unit test keeps a realistic 720,000).
 - The API image scan started failing on every branch: CVE-2026-84782 (High, OpenSSL DTLS) in the Debian 13 base, no fix yet. Not reachable (Node.js has no DTLS). Waived per §44.2 in `.trivyignore` with Trivy's `exp:2026-10-31`: **re-check before then** (PR #26).
 - PR #23 merged before #26, so `dev` fails the image scan until #26 is in. Merged `dev` into #24 and #24 into #25 to clear their conflicts (test app imports, this file).
+- A second High OpenSSL finding appeared the same day (CVE-2026-75804, QUIC), waived in #26 as well. Debian has fixed both (3.5.7-1~deb13u3) but the distroless base still ships deb13u2. Neither is reachable: the Node.js binary links its own OpenSSL (3.5.8) and nothing in the image loads the system libssl. Drop both waivers once distroless ships the fix.
