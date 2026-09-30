@@ -121,13 +121,20 @@ Each VM runs this stack:
 
 ```text
 :80 ─► web (NGINX: the app + proxy) ─► api-a ┐
-                                     └► api-b ┴─► postgres, redis ◄─ worker, scheduler
+                                     ├► api-b ┴─► postgres, redis, storage ◄─ worker, scheduler
+                                     └► storage (/ie-documents, /ie-imports, /ie-exports)
 ```
+
+`storage` is MinIO (Chainguard's build; quay.io no longer serves MinIO images anonymously), not
+published on any port. Browsers reach it only through NGINX, for URLs the API signed for the
+site's own origin (see `docs/runbooks/files-and-imports.md`). Its password is `STORAGE_PASSWORD`
+in `.env`; `install.sh` adds it to VMs installed before storage existed.
 
 The agent follows this environment's tag (`dev`, `qa` or `prod`) for **both** images, the API and
 the web tier. When either points at a new digest it rolls the release out one piece at a time:
 
-1. runs the migrator, if the API image changed
+1. runs the migrator and then `storage-setup` (buckets, versioning, expiry), if the API image
+   changed
 2. replaces `api-a` and waits until it is healthy, then does the same for `api-b`. One replica
    always serves; NGINX retries a request on the other replica if it hits one mid-restart. Then
    it replaces `worker` and `scheduler`; events wait safely in the outbox while the worker restarts
@@ -164,7 +171,7 @@ those outside the busiest hours.
 Copy `infrastructure/vm/` to the server, and put the base image and SSH key in place. Run the same
 two scripts, adjusting `vmRoot` and the memory sizes in `environments.json` to the server. Names and
 addresses stay the same, so nothing else changes. Move PROD data with a `pg_dump` restore, and
-copy the MinIO buckets with `mc mirror`.
+copy the `objectdata` volume (or the buckets, with `mc mirror`).
 
 ## Troubleshooting
 

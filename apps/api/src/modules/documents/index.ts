@@ -12,6 +12,7 @@ export type { ObjectStorage } from './infrastructure/object-storage.js';
 export type { MalwareScanner } from './infrastructure/clamav.js';
 export { PostgresDocuments } from './infrastructure/postgres-documents.js';
 export { XLSX_MIME, bucketFor, storageKey } from './domain/files.js';
+export { RETENTION_DAYS, setUpStorage } from './infrastructure/storage-setup.js';
 
 export interface Documents {
   service: DocumentService;
