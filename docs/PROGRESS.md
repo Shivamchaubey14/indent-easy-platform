@@ -4,7 +4,7 @@ Single source of truth for where the build stands. Update the checklist and the 
 end of every session. Roadmap phases come from SRS §62; timelines are not estimated there.
 
 **Current phase:** 2 — Indent & Approval (Phase 1 done; its PRs #23, #24 and #25 await merging)
-**Next task:** Phase 2 — Indent & Approval (SRS §62): the indent module (header + lines, drafts, submit with REQ numbering), the workflow engine, delegation/SLA and approval notifications. Open PRs, merge in order: #23 (1.6c object storage), #24 (1.7), then #25 (1.8, stacked on #24). The real M1 run waits for a legacy dump without secrets (OQ-004): `docs/runbooks/legacy-migration.md`. After #23 is in `dev`, DEV needs `bash infrastructure/deploy/install.sh DEV` once, and an organisation (`org:bootstrap`, `user:create`, `user:grant`); starting the VM needs UAC and Docker Desktop quit.
+**Next task:** Phase 2 — Indent & Approval (SRS §62): the indent module (header + lines, drafts, submit with REQ numbering), the workflow engine, delegation/SLA and approval notifications. Open PRs, merge in order: #26 (image-scan waiver, first: without it `dev` fails the scan), #23 (1.6c object storage), #24 (1.7), then #25 (1.8, stacked on #24). The real M1 run waits for a legacy dump without secrets (OQ-004): `docs/runbooks/legacy-migration.md`. After #23 is in `dev`, DEV needs `bash infrastructure/deploy/install.sh DEV` once, and an organisation (`org:bootstrap`, `user:create`, `user:grant`); starting the VM needs UAC and Docker Desktop quit.
 
 **Repo:** https://github.com/Shivamchaubey14/indent-easy-platform (public). `main` and `dev` are protected. Branches are `feature/*` → PR → `dev`, and `dev` → PR → `main` at phase milestones. The owner merges PRs; they are not merged from the build session.
 
@@ -222,3 +222,4 @@ end of every session. Roadmap phases come from SRS §62; timelines are not estim
 - Found while dry-running against the dev organisation: user e-mails are unique across organisations, so a legacy e-mail already used elsewhere crashed the run; such users are now skipped and reported.
 - The laptop is at 0.2–0.4 GB free: integration setup hooks needed more than 10 s, now 30 s like the tests. Integration test files already run one at a time.
 - Integration tests use a 1,000-iteration Django hash (the unit test keeps a realistic 720,000).
+- The API image scan started failing on every branch: CVE-2026-84782 (High, OpenSSL DTLS) in the Debian 13 base, no fix yet. Not reachable (Node.js has no DTLS). Waived per §44.2 in `.trivyignore` with Trivy's `exp:2026-10-31`: **re-check before then** (PR #26).
