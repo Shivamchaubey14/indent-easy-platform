@@ -8,6 +8,7 @@ import type { CatalogQueries } from './interface/graphql.js';
 
 export { catalogResolvers, categoriesById, type CatalogQueries } from './interface/graphql.js';
 export { displayName } from './domain/display-name.js';
+export { cycleBandOf, INVALID, mobileE164 } from './imports/common.js';
 
 /** The catalogue's spreadsheet imports (MST-004, MST-007, MST-009). */
 export const CATALOG_IMPORTS = [productMappingImport, vendorProductImport, mppImport];

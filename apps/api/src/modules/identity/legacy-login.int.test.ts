@@ -11,8 +11,9 @@ import { withOrgContext } from '../../shared/database.js';
 import { integrationApp, ORG } from '../../test/integration-app.js';
 import { PostgresIdentity } from './index.js';
 
-// Django PBKDF2 hash of 'bmc store 2025' (made with Python's hashlib, as Django does).
-const DJANGO = 'pbkdf2_sha256$720000$Xq3vLr9TzP1kWm2A$/FvjMnCFmb1LtowosKShV0aFa/XajHfsu9zo5QLD8fM=';
+// Django PBKDF2 hash of 'bmc store 2025' (made with Python's hashlib, as Django does), with few
+// iterations so the test stays fast; the unit test uses a realistic count.
+const DJANGO = 'pbkdf2_sha256$1000$Xq3vLr9TzP1kWm2A$FXLv4vVQzzhkF1rWAQLh+5BAQ+WUhQ9z32uxP67tOZ4=';
 
 let context: Awaited<ReturnType<typeof integrationApp>>;
 let app: ReturnType<typeof createApp>;
