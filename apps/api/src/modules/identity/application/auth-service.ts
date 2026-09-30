@@ -15,6 +15,7 @@ import type { BreachedPasswords, Mailer } from '../infrastructure/outside.js';
 import type { Account, PostgresIdentity } from '../infrastructure/postgres-identity.js';
 import { passwords, randomToken, spendVerifyTime } from '../infrastructure/secrets.js';
 import { resetPasswordMail } from './messages.js';
+import { isLegacyHash, verifyLegacyPassword } from '../domain/legacy-password.js';
 
 export interface AuthDependencies {
   store: PostgresIdentity;
@@ -67,6 +68,21 @@ export class AuthService {
   constructor(private readonly deps: AuthDependencies) {
     this.now = deps.now ?? (() => new Date());
   }
+  /**
+   * Checks a password against the stored hash. A hash migrated from the legacy app is accepted
+   * only while the organisation's `legacy_hash_login` flag is on (OQ-025); otherwise the user
+   * must reset the password.
+   */
+  private async verifyPassword(account: Account, password: string): Promise<boolean> {
+    const stored = account.passwordHash!;
+    if (!isLegacyHash(stored)) return passwords.verify(stored, password);
+    if (!(await this.deps.store.legacyHashLogin(account.organizationId))) {
+      await spendVerifyTime(password);
+      this.deps.logger.info({ userId: account.id }, 'legacy password hash refused: flag is off');
+      return false;
+    }
+    return verifyLegacyPassword(stored, password);
+  }
 
   get accessTtlSeconds(): number {
     return this.deps.tokens.ttlSeconds;
@@ -101,7 +117,7 @@ export class AuthService {
     }
 
     const valid = account.passwordHash
-      ? await passwords.verify(account.passwordHash, input.password)
+      ? await this.verifyPassword(account, input.password)
       : (await spendVerifyTime(input.password), false);
     if (!valid) {
       const failures = await guards.failure(account.id, lockout.windowSeconds);
@@ -128,6 +144,7 @@ export class AuthService {
       );
     }
 
+    // Legacy (Django) and older Argon2 hashes are replaced once the password is known.
     const rehash =
       account.passwordHash && passwords.isOutdated(account.passwordHash)
         ? await passwords.hash(input.password)

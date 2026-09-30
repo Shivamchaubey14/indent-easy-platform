@@ -66,7 +66,6 @@ end of every session. Roadmap phases come from SRS §62; timelines are not estim
 | OQ-004 | Rotate/revoke secrets found in the legacy archive (Django key, Gmail app password, WhatsApp token) | Urgent — independent of the build |
 | OQ-003 | Production data volumes / peak load | Phase 0 exit, sizing |
 | OQ-022 | Mostly decided (DEC-003): Hyper-V VMs DEV/QA/PROD, Docker Compose. Still open: office server specs (the laptop is the interim host) | Go-live |
-| OQ-025 | Legacy password hashes: PBKDF2 adapter vs forced reset | Phase 1 login |
 | OQ-020 | Reconciliation ledger formula | Phase 6 |
 | OQ-031 | Chart library (ECharts vs Recharts) | Phase 9 dashboards |
 
