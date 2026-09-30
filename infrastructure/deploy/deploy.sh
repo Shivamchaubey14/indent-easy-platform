@@ -54,11 +54,12 @@ roll_out() { # api web running_api running_web
   local api=$1 web=$2 was_api=$3 was_web=$4 svc
   release "$api" "$web"
   # Data services first. --remove-orphans also clears containers from older stack layouts.
-  compose up -d --remove-orphans --wait --wait-timeout 120 postgres redis || return 1
+  compose up -d --remove-orphans --wait --wait-timeout 120 postgres redis storage || return 1
   # Also when a replica isn't running (first deploy of this layout, or one was removed by hand).
   if [ "$api" != "$was_api" ] || [ -z "$(compose ps -q api-a 2>/dev/null)" ] ||
     [ -z "$(compose ps -q api-b 2>/dev/null)" ]; then
     compose run --rm migrate || return 1
+    compose run --rm storage-setup || return 1
     for svc in api-a api-b; do
       compose up -d --no-deps --wait --wait-timeout 180 "$svc" || return 1
     done

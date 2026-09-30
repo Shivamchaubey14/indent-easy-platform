@@ -40,12 +40,12 @@ pnpm ui:storybook  # component library on http://localhost:6006
 pnpm mobile:dev    # mobile app: open it in Expo Go (docs/runbooks/mobile.md)
 ```
 
-| Service       | URL                                 |
-| ------------- | ----------------------------------- |
-| PostgreSQL    | `localhost:5432` (db `indent_easy`) |
-| Redis         | `localhost:6380`                    |
-| MinIO console | http://localhost:9001               |
-| Mailpit       | http://localhost:8025               |
+| Service    | URL                                     |
+| ---------- | --------------------------------------- |
+| PostgreSQL | `localhost:5432` (db `indent_easy`)     |
+| Redis      | `localhost:6380`                        |
+| MinIO (S3) | `localhost:9000` (`pnpm storage:setup`) |
+| Mailpit    | http://localhost:8025                   |
 
 ## Code quality
 

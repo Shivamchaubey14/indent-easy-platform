@@ -4,7 +4,12 @@
  * refusals: wrong type, too large, tampered file, disguised file, other people's files.
  */
 import { createHash, randomUUID } from 'node:crypto';
-import { HeadObjectCommand, type S3Client } from '@aws-sdk/client-s3';
+import {
+  GetBucketLifecycleConfigurationCommand,
+  GetBucketVersioningCommand,
+  HeadObjectCommand,
+  type S3Client,
+} from '@aws-sdk/client-s3';
 import type pg from 'pg';
 import request from 'supertest';
 import { pino } from 'pino';
@@ -123,6 +128,23 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await context.close();
+});
+
+describe('storage setup', () => {
+  it('versions documents and expires import and export files (SRS §35.1)', async () => {
+    const { buckets } = context.config.storage;
+    const versioning = await s3.send(new GetBucketVersioningCommand({ Bucket: buckets.documents }));
+    expect(versioning.Status).toBe('Enabled');
+    for (const [bucket, days] of [
+      [buckets.imports, 90],
+      [buckets.exports, 7],
+    ] as const) {
+      const lifecycle = await s3.send(
+        new GetBucketLifecycleConfigurationCommand({ Bucket: bucket }),
+      );
+      expect(lifecycle.Rules?.[0]).toMatchObject({ Status: 'Enabled', Expiration: { Days: days } });
+    }
+  });
 });
 
 describe('uploading a file', () => {
