@@ -112,6 +112,8 @@ function build(options: BuildOptions = {}) {
       organizationAdmin: {} as Services['organizationAdmin'],
       catalog: {} as Services['catalog'],
       imports: {} as Services['imports'],
+      configuration: {} as Services['configuration'],
+      audit: {} as Services['audit'],
       directory: () => Promise.reject(new Error('not used')),
       access: (p) =>
         options.rolesChanged

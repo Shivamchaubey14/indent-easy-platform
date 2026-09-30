@@ -62,6 +62,7 @@ try {
     await client.query('SELECT identity.seed_role_templates($1)', [organizationId]);
     await client.query('SELECT catalog.seed_reference($1)', [organizationId]);
     await client.query('SELECT docs.seed_document_types($1)', [organizationId]);
+    await client.query('SELECT config.seed_configuration($1)', [organizationId]);
     const { rows } = await client.query<{ count: number }>(
       'SELECT count(*)::int AS count FROM identity.role WHERE is_system',
     );

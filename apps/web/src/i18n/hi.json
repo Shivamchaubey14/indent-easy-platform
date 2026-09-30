@@ -123,7 +123,9 @@
     "fileEmpty": "फ़ाइल खाली है।",
     "fileTooLarge": "फ़ाइल बहुत बड़ी है।",
     "checksum": "फ़ाइल सत्यापित नहीं हो सकी।",
-    "notSupported": "यह अभी समर्थित नहीं है।"
+    "notSupported": "यह अभी समर्थित नहीं है।",
+    "seriesPrefix": "बड़े अक्षर, अंक, -, / या _ का उपयोग करें।",
+    "seriesBackwards": "अगली संख्या केवल बढ़ सकती है।"
   },
   "auth": {
     "invalidCredentials": "ई-मेल पता, कर्मचारी कोड या पासवर्ड गलत है।",
@@ -254,7 +256,64 @@
     "editDepartment": "विभाग संपादित करें",
     "editDesignation": "पद संपादित करें",
     "scopeCategories": "केवल इन उत्पाद श्रेणियों तक",
-    "scopeCategoriesHint": "कुछ न चुनें: सभी श्रेणियाँ।"
+    "scopeCategoriesHint": "कुछ न चुनें: सभी श्रेणियाँ।",
+    "numberSeries": "क्रमांक शृंखला",
+    "numberSeriesHint": "दस्तावेज़ संख्याएँ कैसे बनती हैं। संख्याएँ दोबारा नहीं दी जातीं: अगली संख्या केवल आगे बढ़ सकती है।",
+    "document": "दस्तावेज़",
+    "nextNumber": "अगली संख्या",
+    "resetPolicy": "फिर से शुरू",
+    "editSeries": "{{name}} की क्रमांकन",
+    "nextNumberHint": "अगली संख्या केवल बढ़ाई जा सकती है, घटाई नहीं, ताकि कोई संख्या दो बार न दी जाए।",
+    "prefix": "उपसर्ग",
+    "digits": "अंक",
+    "nextIssued": "अगले दस्तावेज़ को मिलेगा:",
+    "settings": "सेटिंग्स",
+    "settingsHint": "वे मान जिनसे सिस्टम काम करता है। सहेजने से पहले हर सेटिंग जाँची जाती है।",
+    "value": "मान",
+    "settingRange": "{{min}} से {{max}}{{unit}} तक। डिफ़ॉल्ट {{value}}{{unit}}।",
+    "settingIsDefault": "डिफ़ॉल्ट मान",
+    "settingChanged": "{{who}} द्वारा बदला गया, {{when}}",
+    "settingSource": "नियम {{source}}",
+    "useDefault": "डिफ़ॉल्ट लें",
+    "featureFlags": "फ़ीचर फ़्लैग",
+    "featureFlagsHint": "इस संगठन के लिए सुविधाएँ चालू या बंद करें, चाहें तो केवल कुछ परिवेशों में या कुछ प्रतिशत उपयोगकर्ताओं के लिए।",
+    "on": "चालू",
+    "off": "बंद",
+    "targeting": "लक्ष्यीकरण",
+    "targetingFor": "{{name}} का लक्ष्यीकरण",
+    "targetingHint": "कुछ न चुनने पर, चालू होने पर फ़्लैग सभी पर लागू होता है।",
+    "environments": "परिवेश",
+    "environmentsHint": "केवल इन परिवेशों में। कुछ न चुनें: सभी।",
+    "rolloutPercentage": "उपयोगकर्ताओं का हिस्सा (%)",
+    "rolloutHint": "खाली: सभी। वही उपयोगकर्ता हिस्से में बने रहते हैं।",
+    "percentOfUsers": "{{pct}}% उपयोगकर्ता",
+    "limitedToRoles": "{{count}} भूमिकाएँ",
+    "limitedToLocations": "{{count}} स्थान",
+    "flagNotSaved": "फ़्लैग बदला नहीं जा सका।",
+    "audit": "ऑडिट लॉग",
+    "auditAction": "क्रिया",
+    "auditEntity": "रिकॉर्ड प्रकार",
+    "requestId": "अनुरोध आईडी",
+    "from": "से",
+    "to": "तक",
+    "noAudit": "कोई ऑडिट रिकॉर्ड मेल नहीं खाता।",
+    "auditCount": "{{count}} रिकॉर्ड",
+    "when": "कब",
+    "who": "किसने",
+    "details": "विवरण",
+    "system": "सिस्टम",
+    "noFieldChanges": "कोई फ़ील्ड नहीं बदला।",
+    "field": "फ़ील्ड",
+    "before": "पहले",
+    "after": "बाद में",
+    "chainCheck": "छेड़छाड़ जाँच",
+    "chainCheckHint": "हर ऑडिट रिकॉर्ड में पिछले रिकॉर्ड की छाप होती है। यह एक दिन की शृंखला दोबारा जाँचता है: बदला, हटाया या जोड़ा गया कोई भी रिकॉर्ड उसे तोड़ देता है।",
+    "day": "दिन",
+    "checkChain": "दिन की जाँच करें",
+    "chainIntact": "अखंड",
+    "chainBroken": "टूटी हुई",
+    "chainRecords": "{{count}} रिकॉर्ड",
+    "chainBrokenAt": "पहला अंतर: {{id}}"
   },
   "userStatus": {
     "INVITED": "आमंत्रित",
@@ -556,5 +615,37 @@
     "UNSUPPORTED_FORMAT": "फ़ाइल को .xlsx (Excel वर्कबुक) या .csv के रूप में सहेजें।",
     "UNREADABLE_FILE": "फ़ाइल Excel वर्कबुक के रूप में पढ़ी नहीं जा सकी।",
     "FILE_NOT_AVAILABLE": "अपलोड की गई फ़ाइल उपलब्ध नहीं है।"
+  },
+  "docType": {
+    "INDENT": "इंडेंट",
+    "GRN": "माल प्राप्ति (जीआरएन)",
+    "STN": "स्टॉक ट्रांसफ़र नोट (एसटीएन)"
+  },
+  "resetPolicy": {
+    "NEVER": "कभी नहीं",
+    "FISCAL_YEAR": "हर वित्तीय वर्ष",
+    "CALENDAR_YEAR": "हर कैलेंडर वर्ष"
+  },
+  "flag": {
+    "mfa": "दो-चरण साइन-इन",
+    "otp_login": "एक-बार कोड से साइन-इन",
+    "rfq": "कोटेशन अनुरोध",
+    "inspection_step": "प्राप्ति पर गुणवत्ता निरीक्षण",
+    "po_approval_workflow": "क्रय आदेश की स्वीकृति",
+    "invoice_matching": "बीजक मिलान",
+    "mobile_offline_advance_sale": "फ़ोन पर ऑफ़लाइन अग्रिम बिक्री",
+    "sahayak_sms": "सहायकों को एसएमएस",
+    "dark_mode": "डार्क थीम",
+    "hindi_ui": "हिन्दी इंटरफ़ेस",
+    "canary_api": "कैनरी एपीआई रिलीज़",
+    "legacy_hash_login": "पुराने पासवर्ड से साइन-इन"
+  },
+  "setting": {
+    "receiving": {
+      "overReceiptTolerancePct": {
+        "label": "अधिक प्राप्ति की छूट",
+        "hint": "बिना स्वीकृति के आदेशित मात्रा से कितना अधिक प्राप्त किया जा सकता है, आदेशित मात्रा के प्रतिशत में।"
+      }
+    }
   }
 }

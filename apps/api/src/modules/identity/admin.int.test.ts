@@ -150,9 +150,12 @@ describe('creating users', () => {
       .expect(204);
     expect(await signIn(email, 'fresh start at the bmc')).toMatch(/^ey/);
 
-    const audit = await pool.query<{ action: string; hash: Buffer }>(
-      "SELECT action, hash FROM audit.audit_log WHERE entity_id = $1 AND action = 'USER_CREATED'",
-      [user['id']],
+    // The audit log is isolated per organisation: read it as the organisation.
+    const audit = await withOrgContext(pool, ORG, (client) =>
+      client.query<{ action: string; hash: Buffer }>(
+        "SELECT action, hash FROM audit.audit_log WHERE entity_id = $1 AND action = 'USER_CREATED'",
+        [user['id']],
+      ),
     );
     expect(audit.rows).toHaveLength(1);
     expect(audit.rows[0]!.hash).toHaveLength(32);
@@ -363,12 +366,17 @@ describe('organisation masters', () => {
   });
 
   it('chains audit records: each one carries the previous hash', async () => {
-    const { rows } = await pool.query<{ prev_hash: Buffer | null; hash: Buffer }>(
-      `SELECT prev_hash, hash FROM audit.audit_log
-       WHERE organization_id = $1 AND occurred_at >= now()::date
-       ORDER BY occurred_at, id`,
-      [ORG],
+    const { rows } = await withOrgContext(pool, ORG, (client) =>
+      client.query<{ prev_hash: Buffer | null; hash: Buffer }>(
+        `SELECT prev_hash, hash FROM audit.audit_log
+         WHERE organization_id = $1 AND occurred_at >= now()::date
+         ORDER BY occurred_at, id`,
+        [ORG],
+      ),
     );
+    // Without an organisation the application role sees none of it.
+    const outside = await pool.query('SELECT 1 FROM audit.audit_log LIMIT 1');
+    expect(outside.rows).toEqual([]);
     expect(rows.length).toBeGreaterThan(3);
     for (let i = 1; i < rows.length; i++) {
       expect(rows[i]!.prev_hash?.equals(rows[i - 1]!.hash)).toBe(true);

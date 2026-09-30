@@ -1,5 +1,6 @@
 import type { CatalogQueries } from '../modules/catalog/index.js';
-import type { FeatureFlagReader } from '../modules/configuration/index.js';
+import type { PostgresAudit } from '../modules/audit/index.js';
+import type { FeatureFlagReader, PostgresConfiguration } from '../modules/configuration/index.js';
 import type { ImportQueries } from '../modules/imports/index.js';
 import type { AdminQueries, IdentityQueries } from '../modules/identity/index.js';
 import type { Directory, OrganizationAdmin } from '../modules/organization/index.js';
@@ -8,6 +9,8 @@ import type { Principal, RequestContext } from '../shared/context.js';
 
 export interface Services {
   featureFlags: FeatureFlagReader;
+  configuration: PostgresConfiguration;
+  audit: PostgresAudit;
   identity: IdentityQueries;
   admin: AdminQueries;
   organizationAdmin: OrganizationAdmin;

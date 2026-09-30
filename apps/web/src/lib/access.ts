@@ -6,6 +6,10 @@ export const ADMIN_PERMISSIONS = [
   'admin:user_manage',
   'admin:role_manage',
   'admin:master_manage',
+  'admin:number_series_manage',
+  'admin:settings_manage',
+  'admin:feature_flag_manage',
+  'audit:read',
 ] as const;
 
 export const canAdminister = (permissions: readonly string[]) =>

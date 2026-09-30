@@ -123,7 +123,9 @@
     "fileEmpty": "The file is empty.",
     "fileTooLarge": "The file is too large.",
     "checksum": "The file could not be verified.",
-    "notSupported": "This is not supported yet."
+    "notSupported": "This is not supported yet.",
+    "seriesPrefix": "Use capital letters, digits, -, / or _.",
+    "seriesBackwards": "The next number can only go up."
   },
   "auth": {
     "invalidCredentials": "The e-mail address, employee code or password is incorrect.",
@@ -254,7 +256,64 @@
     "editDepartment": "Edit department",
     "editDesignation": "Edit designation",
     "scopeCategories": "Limited to product categories",
-    "scopeCategoriesHint": "None ticked: every category."
+    "scopeCategoriesHint": "None ticked: every category.",
+    "numberSeries": "Number series",
+    "numberSeriesHint": "How document numbers are made. Numbers are never reused: the next number can only move forward.",
+    "document": "Document",
+    "nextNumber": "Next number",
+    "resetPolicy": "Starts again",
+    "editSeries": "Numbering of {{name}}",
+    "nextNumberHint": "The next number may only be raised, never lowered, so no number is issued twice.",
+    "prefix": "Prefix",
+    "digits": "Digits",
+    "nextIssued": "Next document gets:",
+    "settings": "Settings",
+    "settingsHint": "Values the system works with. Each setting is checked before it is saved.",
+    "value": "Value",
+    "settingRange": "From {{min}} to {{max}}{{unit}}. Default {{value}}{{unit}}.",
+    "settingIsDefault": "Default value",
+    "settingChanged": "Changed by {{who}}, {{when}}",
+    "settingSource": "Rule {{source}}",
+    "useDefault": "Use the default",
+    "featureFlags": "Feature flags",
+    "featureFlagsHint": "Switch features on or off for this organisation, optionally only in some environments or for a share of users.",
+    "on": "On",
+    "off": "Off",
+    "targeting": "Targeting",
+    "targetingFor": "Targeting of {{name}}",
+    "targetingHint": "With nothing chosen, the flag applies to everyone when it is on.",
+    "environments": "Environments",
+    "environmentsHint": "Only in these environments. None ticked: all.",
+    "rolloutPercentage": "Share of users (%)",
+    "rolloutHint": "Empty: everyone. The same users stay in the share.",
+    "percentOfUsers": "{{pct}}% of users",
+    "limitedToRoles": "{{count}} roles",
+    "limitedToLocations": "{{count}} locations",
+    "flagNotSaved": "The flag could not be changed.",
+    "audit": "Audit log",
+    "auditAction": "Action",
+    "auditEntity": "Record type",
+    "requestId": "Request ID",
+    "from": "From",
+    "to": "To",
+    "noAudit": "No audit records match.",
+    "auditCount": "{{count}} records",
+    "when": "When",
+    "who": "Who",
+    "details": "Details",
+    "system": "System",
+    "noFieldChanges": "No field changed.",
+    "field": "Field",
+    "before": "Before",
+    "after": "After",
+    "chainCheck": "Tamper check",
+    "chainCheckHint": "Each audit record carries the fingerprint of the one before it. This recomputes a day's chain: any changed, removed or inserted record breaks it.",
+    "day": "Day",
+    "checkChain": "Check the day",
+    "chainIntact": "Intact",
+    "chainBroken": "Broken",
+    "chainRecords": "{{count}} records",
+    "chainBrokenAt": "first mismatch: {{id}}"
   },
   "userStatus": {
     "INVITED": "Invited",
@@ -556,5 +615,37 @@
     "UNSUPPORTED_FORMAT": "Save the file as .xlsx (Excel Workbook) or .csv.",
     "UNREADABLE_FILE": "The file could not be read as an Excel workbook.",
     "FILE_NOT_AVAILABLE": "The uploaded file is not available."
+  },
+  "docType": {
+    "INDENT": "Indent",
+    "GRN": "Goods receipt (GRN)",
+    "STN": "Stock transfer note (STN)"
+  },
+  "resetPolicy": {
+    "NEVER": "Never",
+    "FISCAL_YEAR": "Every financial year",
+    "CALENDAR_YEAR": "Every calendar year"
+  },
+  "flag": {
+    "mfa": "Two-step sign-in",
+    "otp_login": "Sign-in with a one-time code",
+    "rfq": "Requests for quotation",
+    "inspection_step": "Quality inspection on receipt",
+    "po_approval_workflow": "Approval of purchase orders",
+    "invoice_matching": "Invoice matching",
+    "mobile_offline_advance_sale": "Offline advance sales on phones",
+    "sahayak_sms": "SMS to Sahayaks",
+    "dark_mode": "Dark theme",
+    "hindi_ui": "Hindi interface",
+    "canary_api": "Canary API release",
+    "legacy_hash_login": "Sign-in with old passwords"
+  },
+  "setting": {
+    "receiving": {
+      "overReceiptTolerancePct": {
+        "label": "Over-receipt tolerance",
+        "hint": "How much more than ordered may be received without approval, in percent of the ordered quantity."
+      }
+    }
   }
 }
